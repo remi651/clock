@@ -27,14 +27,14 @@ export function authorizedGoogleUser(payload) {
   return { id: payload.sub, email: payload.email.toLowerCase(), name: payload.name || payload.email.split('@')[0] };
 }
 
-export function createApp({ demo = false, store, provider, appUrl = 'http://localhost:3000', oauthClient } = {}) {
+export function createApp({ demo = false, store, provider, appUrl = 'http://localhost:3000', oauthClient, personal = false } = {}) {
   const app = express();
   const secure = new URL(appUrl).protocol === 'https:';
   store ||= new Store(resolve(root, demo ? 'data/demo.sqlite' : (process.env.DATABASE_PATH || 'data/clock.sqlite')));
   provider ||= createFurious({ demo });
   const clientId = process.env.GOOGLE_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-  const googleConfigured = Boolean(oauthClient || (clientId && clientSecret));
+  const googleConfigured = !personal && Boolean(oauthClient || (clientId && clientSecret));
   const oauth = oauthClient || new OAuth2Client(clientId, clientSecret, `${appUrl}/auth/google/callback`);
   const pendingLogins = new Map();
   const options = { httpOnly: true, secure, sameSite: 'lax', path: '/' };
@@ -56,6 +56,7 @@ export function createApp({ demo = false, store, provider, appUrl = 'http://loca
   });
 
   app.get('/auth/google', async (_req, res) => {
+    if (personal) return res.sendStatus(404);
     if (!googleConfigured) return res.redirect('/?auth=unconfigured');
     const now = Date.now();
     for (const [key, value] of pendingLogins) if (value.expires < now) pendingLogins.delete(key);
@@ -72,6 +73,7 @@ export function createApp({ demo = false, store, provider, appUrl = 'http://loca
   });
 
   app.get('/auth/google/callback', async (req, res) => {
+    if (personal) return res.sendStatus(404);
     const { state, code } = req.query;
     const pending = typeof state === 'string' ? pendingLogins.get(state) : null;
     const bound = equal(state, cookies(req).katra_oauth);
@@ -98,6 +100,7 @@ export function createApp({ demo = false, store, provider, appUrl = 'http://loca
   app.get('/api/session', (req, res) => res.json({
     user: req.session?.user || null, csrf: req.session?.csrf || null,
     demo, googleConfigured, furiousConfigured: provider.ready && !demo,
+    authMode: personal ? 'personal' : 'google',
     today: dayAt(), timeZone: TIME_ZONE,
   }));
   app.post('/api/demo-login', (req, res) => {

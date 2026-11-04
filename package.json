@@ -11,9 +11,11 @@
     "dev": "node --watch --env-file-if-exists=.env server.js",
     "demo": "node --env-file-if-exists=.env server.js --demo",
     "test": "node --test test/*.test.js",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "build:mac": "node scripts/build-mac.mjs"
   },
   "dependencies": {
+    "@napi-rs/keyring": "2.1.2",
     "express": "5.1.0",
     "gaxios": "8.3.2",
     "google-auth-library": "11.3.3"

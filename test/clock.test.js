@@ -185,6 +185,8 @@ test('HTTP : le serveur normal ne permet aucune connexion de démonstration', as
   const { base } = await fixture(t);
   assert.equal((await fetch(`${base}/api/demo-login`, { method: 'POST', headers: { Origin: 'http://localhost:3000', 'Content-Type': 'application/json' }, body: '{}' })).status, 404);
   assert.equal((await fetch(`${base}/__test/login`, { method: 'POST' })).status, 404);
+  assert.equal((await fetch(`${base}/desktop/open?key=anything`)).status, 404);
+  assert.equal((await fetch(`${base}/desktop/config`, { method: 'POST' })).status, 404);
   const response = await fetch(`${base}/`);
   assert.equal(response.status, 200);
   assert.match(response.headers.get('content-security-policy'), /frame-ancestors 'none'/);

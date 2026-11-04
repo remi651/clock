@@ -1,0 +1,68 @@
+KATRA CLOCK — APPLICATION MAC PERSONNELLE
+
+Cette version est destinée à vous seul. Aucun compte Apple Developer, aucun
+hébergement, aucune base DigitalOcean et aucune connexion Google ne sont requis.
+
+Prérequis : macOS 13.5 ou plus récent, Mac Intel ou Apple Silicon, connexion
+Internet pour l’installation et pour communiquer avec Furious.
+
+INSTALLATION
+
+1. Décompressez l’archive complète dans Téléchargements.
+2. Ouvrez le fichier « Installer Clock.command » à la racine de l’archive.
+   Une fenêtre Terminal effectue l’installation ; aucune commande à saisir.
+   Le moteur Node.js et les dépendances sont téléchargés automatiquement.
+   Aucun accès administrateur ni outil Xcode n’est nécessaire.
+3. Si macOS bloque l’ouverture, utilisez l’autorisation normale proposée dans
+   Réglages Système > Confidentialité et sécurité pour ce fichier de confiance.
+   Ne désactivez pas Gatekeeper et ne supprimez pas les attributs de quarantaine.
+   Si aucune autorisation n’est proposée, envoyez une capture du message exact.
+4. L’application « Katra Clock » est créée dans Applications de votre dossier
+   personnel. Elle peut ensuite être ouverte par double-clic ou depuis Spotlight.
+
+PREMIER LANCEMENT
+
+Clock ouvre une interface locale dans votre navigateur habituel. Ce n’est pas
+une fenêtre native autonome ; l’application Mac lance et arrête le moteur local.
+Le moteur n’écoute que sur votre ordinateur, à l’adresse 127.0.0.1, et nécessite
+un accès personnel généré à chaque lancement. Rien n’est publié sur Internet.
+
+Un formulaire demande :
+- votre adresse studio-katra.com, identique à celle de votre fiche Furious ;
+- l’identifiant du compte API Furious ;
+- le mot de passe de ce compte API.
+
+Le formulaire vérifie les accès et votre fiche utilisateur en lecture seule.
+Il ne crée aucun temps. Les identifiants sont stockés dans le Trousseau macOS,
+jamais dans un fichier .env. macOS peut demander d’autoriser Node à accéder au
+Trousseau. Utilisez les valeurs originales de vos identifiants API ; elles ne
+sont pas copiées depuis les paramètres cloud. Ne les envoyez pas dans le chat.
+
+ENSUITE
+
+- Ouvrez Katra Clock depuis Applications. L’espace s’ouvre directement.
+- Utilisez le bouton Réglages pour modifier les accès API si nécessaire.
+- Les temps et les épingles restent sur votre Mac. L’export est manuel et crée
+  de vrais temps dans Furious : utilisez un projet de test pour le premier essai.
+- Fermer l’onglet n’arrête pas le moteur. Pour quitter, utilisez Katra Clock >
+  Quitter dans le menu de l’application ou Quitter depuis son icône dans le Dock.
+- La minuterie reste enregistrée jusqu’à son arrêt explicite, même si vous
+  quittez l’application ; elle reprend sa durée écoulée au prochain lancement.
+- Si vous effacez les cookies pendant l’utilisation, quittez puis rouvrez Clock.
+
+CONSERVATION DES DONNÉES
+
+Les données sont dans :
+~/Library/Application Support/Katra Clock/data/clock.sqlite
+Les identifiants sont dans le Trousseau, service com.studio-katra.clock.personal.
+Supprimer l’application ne supprime pas automatiquement ces éléments. Sauvegardez
+votre Mac, par exemple avec Time Machine, et protégez votre session macOS.
+Changer l’adresse dans les réglages ouvre un historique distinct ; l’ancien
+historique n’est pas effacé et redevient visible en remettant l’adresse d’origine.
+
+LIMITES DE VALIDATION
+
+L’interface et le serveur personnel sont testés sous Linux avec un Trousseau
+simulé. L’installateur, AppleScript, la signature locale et l’accès réel au
+Trousseau doivent encore être vérifiés sur votre Mac. Cette application est
+créée localement et n’est pas notariée par Apple ; aucun abonnement n’est requis.

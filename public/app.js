@@ -17,6 +17,7 @@ const icon = (name, cls = '') => {
     edit: '<path d="m14 5 5 5M4 20l5-1L20 8a2 2 0 0 0-5-5L4 15Z"/>',
     lock: '<rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3m-4 5v2"/>',
     logout: '<path d="M9 4H4v16h5m5-12 4 4-4 4m-5-4h11"/>',
+    settings: '<path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="3"/><circle cx="15" cy="17" r="3"/>',
     folder: '<path d="M3 7V5h6l2 2h10v13H3Z"/>',
     sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1 1m12 12 1 1M5 19l1-1M18 6l1-1"/>',
     pin: '<path d="m9 3 8 0-1 6 4 4v2H5v-2l4-4Zm3 12v6"/>',
@@ -101,7 +102,7 @@ function renderDashboard() {
   app.innerHTML = `
     <aside class="sidebar">${brand()}<div class="studio">STUDIO KATRA</div>
       <nav aria-label="Navigation principale"><a class="nav-item active" href="#today" aria-label="Chronomètre" title="Chronomètre">${icon('clock')}</a><a class="nav-item" href="#projects">${icon('grid')}Projets ouverts <small>${projects.length}</small></a></nav>
-      <div class="sidebar-bottom"><div class="connection"><span class="dot ${session.furiousConfigured && !projectError ? 'ready' : ''}"></span>${session.demo ? 'Furious · démonstration' : session.furiousConfigured ? projectError ? 'Furious indisponible' : 'Furious connecté' : 'Furious à connecter'}</div><div class="profile"><span class="avatar">${escape(initials)}</span><div><div class="profile-name">${escape(user.name)}</div><div class="profile-email">${escape(user.email)}</div></div><button class="logout" id="logout" aria-label="Se déconnecter" title="Se déconnecter">${icon('logout')}</button></div></div>
+      <div class="sidebar-bottom"><div class="connection"><span class="dot ${session.furiousConfigured && !projectError ? 'ready' : ''}"></span>${session.demo ? 'Furious · démonstration' : session.furiousConfigured ? projectError ? 'Furious indisponible' : 'Furious connecté' : 'Furious à connecter'}</div><div class="profile"><span class="avatar">${escape(initials)}</span><div><div class="profile-name">${escape(user.name)}</div><div class="profile-email">${escape(user.email)}</div></div><button class="logout" id="${session.authMode === 'personal' ? 'settings' : 'logout'}" aria-label="${session.authMode === 'personal' ? 'Réglages' : 'Se déconnecter'}" title="${session.authMode === 'personal' ? 'Réglages' : 'Se déconnecter'}">${icon(session.authMode === 'personal' ? 'settings' : 'logout')}</button></div></div>
     </aside>
     <main class="main" id="today">
       <header class="topbar"><div class="breadcrumb"></div><div class="top-right"><span class="workspace-badge">STUDIO KATRA</span>${icon('sun')}</div></header>
@@ -191,7 +192,8 @@ async function act(action, success) {
 }
 
 function bindDashboard() {
-  document.querySelector('#logout').addEventListener('click', async () => {
+  document.querySelector('#settings')?.addEventListener('click', () => { location.href = '/desktop/settings'; });
+  document.querySelector('#logout')?.addEventListener('click', async () => {
     try { await api('/api/logout', { method: 'POST', body: '{}' }); session = { ...session, user: null, csrf: null }; renderLogin(); }
     catch (error) { toast(error.message, true); }
   });

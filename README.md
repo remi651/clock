@@ -4,6 +4,27 @@ Application web de suivi du temps : une minuterie par personne, description des
 tâches, historique quotidien et correction des durées avant export. Interface en
 français, adaptée aux ordinateurs et aux mobiles.
 
+## Application Mac personnelle
+
+La version personnelle est dans `desktop/`. Lancer `npm run build:mac` pour
+préparer l’archive d’installation. Lire [les instructions Mac](desktop/mac/LIRE-EN-PREMIER.txt).
+Elle crée localement `Katra Clock.app` pour macOS 13.5+, sans compte Apple
+Developer, et ouvre l’interface dans le navigateur habituel. Elle n’utilise ni
+Google ni hébergement, et conserve les accès API dans le Trousseau macOS.
+Le mode web conserve sa connexion Google et n’active jamais ce mode personnel
+par une variable d’environnement. Le serveur personnel écoute seulement sur
+127.0.0.1, avec une clé d’ouverture à usage unique, des cookies HttpOnly et un
+contrôle d’origine/CSRF. Les données personnelles sont séparées des essais et
+du serveur web dans `~/Library/Application Support/Katra Clock/data`.
+
+L’installateur détecte Intel/Apple Silicon, télécharge Node.js 24.22.2 depuis
+nodejs.org et vérifie le SHA-256 officiel avant utilisation. Les dépendances
+utilisent le lockfile npm, sans scripts d’installation. AppleScript et la
+signature locale ad hoc sont produits par les outils macOS, sans Xcode ni
+abonnement Apple. Il ne s’agit pas d’une app notariée ou distribuée via l’App
+Store. L’installation et le vrai Trousseau restent à valider sur le Mac de
+l’utilisateur ; les tests Linux utilisent un Trousseau simulé.
+
 ## Mise en ligne préparée
 
 Le fichier `render.yaml` prépare le déploiement sur Render avec un disque

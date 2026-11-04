@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="fr">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><title>Clock — Réglages personnels</title><link rel="stylesheet" href="/desktop/settings.css"><script src="/desktop/settings.js" defer></script></head>
+<body><main><header><img src="/assets/katra-logo-white.png" alt="Studio Katra"><span>CLOCK PERSONNEL</span></header>
+<section><h1>Votre espace, sur votre Mac.</h1><p>La connexion Google n’est pas nécessaire pour cette version personnelle. Vos temps restent sur ce Mac jusqu’à leur export.</p>
+<form id="settings"><label>Votre adresse Studio Katra<input name="email" type="email" autocomplete="email" required placeholder="prenom@studio-katra.com"></label>
+<p class="hint">Utilisez l’adresse de votre fiche Furious. Changer d’adresse ouvre un historique distinct.</p>
+<label>Identifiant du compte API Furious<input name="username" autocomplete="off" required></label>
+<label>Mot de passe du compte API Furious<input name="password" type="password" autocomplete="off" required></label>
+<p class="hint" id="password-hint">Les identifiants seront conservés dans le Trousseau macOS. Ne les envoyez pas dans le chat.</p>
+<details><summary>Horaire de secours (facultatif)</summary><label>Heures par journée<input name="hoursPerDay" type="number" min="0.01" max="24" step="any" placeholder="Laisser vide pour utiliser Furious"></label><p class="hint">Utilisé seulement si l’historique d’horaires de Furious est vide.</p></details>
+<p id="error" role="alert" hidden></p><button type="submit">Vérifier et ouvrir Clock</button><a id="back" href="/" hidden>Retour à Clock</a>
+</form></section><footer>Application personnelle · Aucun compte Apple Developer requis.</footer></main></body></html>

@@ -1,0 +1,32 @@
+import { test, expect } from '@playwright/test';
+
+test('Mac personnel simulé : configuration, ouverture sans Google, réglages et export manuel', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.goto('/__test/new-personal');
+  await expect(page.getByRole('heading', { name: 'Votre espace, sur votre Mac.' })).toBeVisible();
+  await page.getByLabel('Votre adresse Studio Katra').fill('camille@studio-katra.com');
+  await page.getByLabel('Identifiant du compte API Furious').fill('fake-personal-api');
+  await page.getByLabel('Mot de passe du compte API Furious').fill('fake-personal-password');
+  await page.getByRole('button', { name: 'Vérifier et ouvrir Clock' }).click();
+  await expect(page.getByRole('heading', { name: 'Votre journée, en clair.' })).toBeVisible();
+  await expect(page.getByText('Continuer avec Google', { exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Se déconnecter' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Réglages', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Épingler Projet personnel', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Désépingler Projet personnel', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Démarrer', exact: true }).click();
+  await expect(page.locator('#running-time')).not.toHaveText('00:00:00');
+  await page.getByRole('button', { name: 'Réglages', exact: true }).click();
+  await expect(page.getByLabel('Mot de passe du compte API Furious')).toHaveValue('');
+  await expect(page.getByLabel('Votre adresse Studio Katra')).toHaveValue('camille@studio-katra.com');
+  await page.getByRole('button', { name: 'Vérifier et ouvrir Clock' }).click();
+  await expect(page.locator('.timer-title')).toHaveText('Projet personnel');
+  await page.getByRole('button', { name: 'Terminer', exact: true }).click();
+  await expect(page.locator('.pill.pending')).toHaveCount(1);
+  await expect(page.getByRole('button', { name: /Exporter ma journée/ })).toBeEnabled();
+  await page.getByRole('button', { name: /Exporter ma journée/ }).click();
+  await expect(page.locator('.pill.exported')).toHaveCount(1);
+  await expect(page.getByRole('button', { name: /Exporter ma journée/ })).toBeDisabled();
+  expect(errors).toEqual([]);
+});
