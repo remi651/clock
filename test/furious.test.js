@@ -111,6 +111,14 @@ test('Aucun rattachement au compte API si l’email Google est absent ou ambigu 
   }
 });
 
+test('Les refus distinguent authentification SSO/API et lecture Utilisateurs sans révéler la réponse distante', async () => {
+  const auth = apiFixture({ auth: async () => ({ success: false, message: 'fake-test-password' }) });
+  await assert.rejects(() => auth.provider.projects(user), error => /authentification API/.test(error.message) && /SSO Google/.test(error.message) && !/fake-test-password/.test(error.message));
+  const users = apiFixture({ user: async () => ({ success: false, message: 'fake-test-token' }) });
+  await assert.rejects(() => users.provider.identity(user), error => /lecture des utilisateurs/.test(error.message) && !/projet|fake-test-token/.test(error.message));
+  assert.equal(users.writes(), 0);
+});
+
 test('Historique journalier absent : aucun défaut de 7 ou 8 heures supposé ; secours explicite uniquement', async () => {
   const { provider, handler } = apiFixture({ 'user-daily-hours-history': async () => ({ success: true, data: { UserDailyHoursHistory: [] } }) });
   const store = new Store(':memory:');
