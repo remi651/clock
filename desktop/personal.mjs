@@ -6,6 +6,7 @@ import { dirname, resolve } from 'node:path';
 import { Store } from '../lib/store.js';
 import { createApp } from '../server.js';
 import { createFurious } from '../lib/furious.js';
+import { APP_VERSION } from '../lib/version.js';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const accessCookie = 'clock_personal_access';
@@ -79,7 +80,7 @@ export async function startPersonalServer({ directory, vault, port = 34157, prov
   router.use('/assets', express.static(resolve(root, '../public/assets')));
   router.get('/desktop/config', (_req, res) => res.json({
     email: config?.email || '', username: config?.username || '', hoursPerDay: config?.hoursPerDay || '',
-    hasPassword: Boolean(config?.password), configured: Boolean(config), csrf,
+    hasPassword: Boolean(config?.password), configured: Boolean(config), csrf, appVersion: APP_VERSION,
   }));
   router.post('/desktop/config', async (req, res) => {
     if (req.headers.origin !== appUrl || !equal(req.headers['x-csrf-token'], csrf)) return res.sendStatus(403);

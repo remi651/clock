@@ -119,6 +119,27 @@ test('Les refus distinguent authentification SSO/API et lecture Utilisateurs san
   assert.equal(users.writes(), 0);
 });
 
+test('Export refusé : signaler le droit de création ou les champs concernés sans divulguer la réponse brute', async () => {
+  for (const [message, expected] of [
+    ['Vous n’avez pas les autorisations nécessaires', /autorisation de créer des temps/],
+    [{ project_rate_card_id: 'Missing field fake-test-password' }, /ligne de grille tarifaire/],
+    ['project_rate_card_id is required; fake-test-password', /ligne de grille tarifaire/],
+    [{ num_days: 'Invalid private value', assigned_people: 'private@email.test' }, /durée en jours, collaborateur/],
+  ]) {
+    const { provider } = apiFixture({ sprint: async options => options.method === 'GET'
+      ? { success: true, data: { Sprint: [] } } : { success: false, message } });
+    const store = new Store(':memory:');
+    try {
+      addEntry(store);
+      const result = await exportDay(store, provider, user, day);
+      assert.match(result.message, expected);
+      assert.doesNotMatch(result.message, /fake-test-password|private@email|private value/);
+      assert.equal(result.failed, 1);
+      assert.equal(store.entries(user.id, day)[0].status, 'pending');
+    } finally { store.close(); }
+  }
+});
+
 test('Historique journalier absent : aucun défaut de 7 ou 8 heures supposé ; secours explicite uniquement', async () => {
   const { provider, handler } = apiFixture({ 'user-daily-hours-history': async () => ({ success: true, data: { UserDailyHoursHistory: [] } }) });
   const store = new Store(':memory:');

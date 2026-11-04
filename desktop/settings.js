@@ -7,6 +7,7 @@ fetch('/desktop/config').then(async response => {
   if (!response.ok) throw new Error('L’accès local a expiré. Quittez puis rouvrez Clock depuis Applications.');
   const config = await response.json();
   csrf = config.csrf;
+  document.querySelector('#app-version').textContent = `· Version ${config.appVersion}`;
   for (const field of ['email', 'username', 'hoursPerDay']) form.elements[field].value = config[field];
   if (config.hasPassword) {
     form.elements.password.required = false;
