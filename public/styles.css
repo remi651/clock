@@ -32,3 +32,4 @@ dialog{color:#000;background:#fff}
 input::placeholder,textarea::placeholder{color:#666;opacity:1}
 
 .start-project,.button.stop{width:44px;height:44px;min-width:44px;min-height:44px;padding:0;justify-content:center}.start-project svg{width:14px;height:14px}.button.stop svg{width:12px;height:12px}
+select{font:inherit;color:#000;background:#fff;-webkit-text-fill-color:currentColor}dialog select{display:block;width:100%;border:1px solid #bfbfbf;padding:11px;margin-top:8px;font-size:12px}dialog select:disabled{color:#555;background:#e5e5e5;opacity:1}.rate-card-hint,#rate-card-status{font-size:10px;color:#555;line-height:1.7}.entry-rate-card{font-size:10px;color:#555;margin-top:6px}

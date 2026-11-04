@@ -67,6 +67,23 @@ prioritaire et supprime entièrement cette lecture API, pour les comptes qui
 n’en disposent pas. Elle doit correspondre au nombre d’heures d’une journée
 dans la configuration réelle de Furious.
 
+## Grille tarifaire projet — pages 69 à 70
+
+`GET /api/v2/project-rate-card/`, modèle `ProjectRateCard`, filtre
+`project_id.eq` du projet de la saisie. L’API réelle exige un identifiant entre
+guillemets dans ce filtre, par exemple `{project_id:{eq:"42"}}` ; le même format
+est utilisé pour `user_id` dans l’historique des horaires.
+
+Champs lus : `id,project_id,rate_card_row_label,exclude_from_sprint`. Les lignes
+exclues des temps ne sont pas proposées. La pagination est parcourue, et une
+ligne appartenant à un autre projet est refusée. Les prix ne sont pas demandés.
+
+L’utilisateur choisit la prestation dans la modification d’une saisie. Le
+`project_rate_card_id` choisi est conservé localement puis envoyé en entier dans
+la création du temps. La valeur spéciale `-1` signifie **non vendu**, d’après le
+contrat de création page 99, et n’est utilisée que sur choix explicite. Une
+valeur absente reste absente : Clock ne devine pas une affectation tarifaire.
+
 ## Création du temps — pages 99 à 100
 
 `POST /api/v2/sprint/`, action `create`.

@@ -34,6 +34,7 @@ function apiFixture(overrides = {}) {
     assert.equal(options.headers['F-Auth-Token'], 'fake-test-token');
     if (path === 'user') return { data: { success: true, data: { User: [remoteUser] } } };
     if (path === 'project') return { data: { success: true, data: { Project: [remoteProject] } } };
+    if (path === 'project-rate-card') return { data: { success: true, data: { ProjectRateCard: [{ id: 4201, project_id: 42, rate_card_row_label: 'Direction artistique', exclude_from_sprint: 0 }] } } };
     if (path === 'user-daily-hours-history') return { data: { success: true, data: { UserDailyHoursHistory: [{ id: 2, user_id: 17, date: '2026-01-01', daily_hours: 7 }] } } };
     if (path === 'sprint' && options.method === 'GET') return { data: { success: true, data: { Sprint: [] } } };
     if (path === 'sprint' && options.method === 'POST') { writes++; return { data: { success: true, id: 9001 } }; }
@@ -66,7 +67,7 @@ test('Contrat PDF : authentification, champs de recherche et conversion selon le
   const queries = calls.map(c => new URL(c.url).searchParams.get('query')).filter(Boolean);
   assert.ok(queries.some(q => q.includes('email:{eq:"camille@studio-katra.com"}') && q.endsWith('{id,pseudo,email}}')));
   assert.ok(queries.some(q => q.includes('filter:{actif:{eq:"1"}}')));
-  assert.ok(queries.some(q => q.includes('UserDailyHoursHistory') && q.includes('user_id:{eq:17},date:{leq:"2026-11-04"}') && q.includes('order:[{date:desc},{id:desc}]')));
+  assert.ok(queries.some(q => q.includes('UserDailyHoursHistory') && q.includes('user_id:{eq:"17"},date:{leq:"2026-11-04"}') && q.includes('order:[{date:desc},{id:desc}]')));
   const write = calls.find(c => c.method === 'POST' && c.url.endsWith('/sprint/'));
   assert.deepEqual(write.data, { action: 'create', data: {
     sprint_name: `Temps Clock — ${project.name}`, project_id: 42, start_date: day, end_date: day,
@@ -179,6 +180,49 @@ test('Référence manuelle invalide : aucun appel de l’historique ou écriture
     await assert.rejects(() => provider.dailyHours({ id: 17 }, day), /durée de journée/);
     assert.equal(calls.length, 0);
   }
+});
+
+test('Grilles tarifaires : filtre projet sous forme de texte et exclusion des lignes interdites aux temps', async () => {
+  const { provider, calls } = apiFixture({ 'project-rate-card': async (_options, query) => {
+    assert.ok(query.includes('project_id:{eq:"42"}'));
+    assert.ok(!/amount|cjm/.test(query));
+    return { success: true, data: { ProjectRateCard: [
+      { id: 4201, project_id: '42', rate_card_row_label: 'Direction artistique', exclude_from_sprint: 0 },
+      { id: 4202, project_id: '42', rate_card_row_label: 'Achats', exclude_from_sprint: 1 },
+    ] } };
+  } });
+  assert.deepEqual(await provider.rateCards(user, '42'), [{ id: 4201, label: 'Direction artistique' }]);
+  assert.ok(calls.some(c => c.url.includes('/project-rate-card/')));
+  await assert.rejects(() => provider.rateCards(user, '999'), /fermé|accessible/);
+});
+
+test('Export : transmettre la prestation choisie, permettre un choix explicite non vendu et rejeter une ligne supprimée', async () => {
+  for (const choice of [4201, -1, 999999]) {
+    const { provider, calls, writes } = apiFixture();
+    const store = new Store(':memory:');
+    try {
+      const entry = addEntry(store);
+      store.edit(user.id, entry.id, entry.seconds, entry.note, { id: choice, label: 'Choix de test' });
+      const result = await exportDay(store, provider, user, day);
+      if (choice === 999999) {
+        assert.equal(result.failed, 1);
+        assert.equal(writes(), 0);
+        assert.equal(store.entry(user.id, entry.id).status, 'pending');
+      } else {
+        assert.equal(result.exported, 1);
+        assert.equal(calls.find(c => c.method === 'POST' && c.url.endsWith('/sprint/')).data.data.project_rate_card_id, choice);
+        if (choice === -1) assert.ok(!calls.some(c => c.url.includes('/project-rate-card/')));
+      }
+    } finally { store.close(); }
+  }
+});
+
+test('Une ligne d’un autre projet et une réconciliation sur une autre prestation sont refusées', async () => {
+  const wrong = apiFixture({ 'project-rate-card': async () => ({ success: true, data: { ProjectRateCard: [{ id: 4201, project_id: 99, rate_card_row_label: 'Autre projet', exclude_from_sprint: 0 }] } }) });
+  await assert.rejects(() => wrong.provider.rateCards(user, '42'), /autre projet/);
+  const found = apiFixture({ sprint: async () => ({ success: true, data: { Sprint: [remoteEntry(entry, { project_rate_card_id: 4202 })] } }) });
+  await assert.rejects(() => found.provider.reconcileEntry(user, { ...entry, project_rate_card_id: 4201 }), /diffère/);
+  assert.equal(found.writes(), 0);
 });
 
 test('Auth partagée et renouvellement du jeton expiré, sans exposer les erreurs contenant des secrets', async () => {

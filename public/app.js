@@ -4,6 +4,7 @@ const editForm = document.querySelector('#edit-form');
 let session, projects = [], dayData = { entries: [], timer: null }, selectedDay, projectError = '';
 let editingId, toastTimeout, busy = false, serverOffset = 0;
 let pinnedProjectIds = [], projectFilter = '', pinBusy = false;
+let editLoadSequence = 0;
 const icon = (name, cls = '') => {
   const paths = {
     clock: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3 2"/>',
@@ -162,7 +163,7 @@ function renderEntries() {
     let action = '';
     if (entry.status === 'pending') action = `<button class="icon-button" data-edit="${escape(entry.id)}" aria-label="Modifier la saisie ${escape(entry.project_name)}" title="Modifier">${icon('edit')}</button>`;
     if (entry.status === 'uncertain') action = `<button class="icon-button" data-reconcile="${escape(entry.id)}" aria-label="Vérifier dans Furious : ${escape(entry.project_name)}" title="Vérifier dans Furious" ${!session.furiousConfigured ? 'disabled' : ''}>${icon('search')}</button>`;
-    return `<tr><td><div class="entry-project">${escape(entry.project_name)}</div><div class="entry-note">${escape(entry.note || 'Sans description')}</div></td><td class="duration">${duration(entry.seconds)}</td><td><span class="pill ${escape(entry.status)}">${labels[entry.status] || 'À vérifier'}</span></td><td>${action}</td></tr>`;
+    return `<tr><td><div class="entry-project">${escape(entry.project_name)}</div><div class="entry-note">${escape(entry.note || 'Sans description')}</div>${entry.project_rate_card_label ? `<div class="entry-rate-card">${escape(entry.project_rate_card_label)}</div>` : ''}</td><td class="duration">${duration(entry.seconds)}</td><td><span class="pill ${escape(entry.status)}">${labels[entry.status] || 'À vérifier'}</span></td><td>${action}</td></tr>`;
   }).join('') || `<tr><td colspan="4"><div class="empty">${icon('clock')}</div></td></tr>`;
 }
 
@@ -217,7 +218,28 @@ function bindDashboard() {
     editForm.elements.duration.value = duration(entry.seconds);
     editForm.elements.note.value = entry.note;
     document.querySelector('#edit-error').textContent = '';
+    const select = editForm.elements.projectRateCardId;
+    const initial = entry.project_rate_card_id === null || entry.project_rate_card_id === undefined ? '' : String(entry.project_rate_card_id);
+    select.innerHTML = '<option value="">Sans sélection</option><option value="-1">Non vendu (hors grille)</option>';
+    if (initial && initial !== '-1') select.add(new Option(entry.project_rate_card_label || 'Prestation enregistrée', initial));
+    select.value = initial;
+    select.disabled = true;
+    const status = document.querySelector('#rate-card-status');
+    status.textContent = 'Chargement des prestations du projet…';
+    const sequence = ++editLoadSequence;
     dialog.showModal();
+    api(`/api/projects/${encodeURIComponent(entry.project_id)}/rate-cards`).then(result => {
+      if (!dialog.open || sequence !== editLoadSequence) return;
+      select.innerHTML = '<option value="">Sans sélection</option><option value="-1">Non vendu (hors grille)</option>';
+      for (const choice of result.rateCards) select.add(new Option(choice.label, String(choice.id)));
+      if (initial && initial !== '-1' && !result.rateCards.some(choice => String(choice.id) === initial)) {
+        select.add(new Option(`${entry.project_rate_card_label || 'Prestation enregistrée'} — indisponible`, initial));
+      }
+      select.value = initial; // Never select a billable line automatically.
+      status.textContent = result.rateCards.length ? '' : 'Ce projet ne propose aucune ligne de grille tarifaire disponible.';
+    }).catch(error => {
+      if (dialog.open && sequence === editLoadSequence) status.textContent = error.message;
+    }).finally(() => { if (dialog.open && sequence === editLoadSequence) select.disabled = false; });
   }));
 }
 
@@ -229,7 +251,11 @@ editForm.addEventListener('submit', async event => {
   const button = editForm.querySelector('[type=submit]');
   button.disabled = true;
   try {
-    await api(`/api/entries/${encodeURIComponent(editingId)}`, { method: 'PATCH', body: JSON.stringify({ seconds, note: editForm.elements.note.value }) });
+    const entry = dayData.entries.find(item => item.id === editingId);
+    const selected = editForm.elements.projectRateCardId.value;
+    const projectRateCardId = selected === '' ? null : Number(selected);
+    const changed = projectRateCardId !== (entry.project_rate_card_id ?? null);
+    await api(`/api/entries/${encodeURIComponent(editingId)}`, { method: 'PATCH', body: JSON.stringify({ seconds, note: editForm.elements.note.value, ...(changed ? { projectRateCardId } : {}) }) });
     dialog.close();
     await loadData();
     toast('Saisie mise à jour.');

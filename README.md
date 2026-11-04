@@ -175,6 +175,16 @@ fin, une description et `is_validated=0` : **l’export ne valide pas automatiqu
 les temps** dans Furious. La durée n’est pas arrondie localement. Le traitement
 effectif des décimales par l’instance reste à confirmer lors de l’essai réel.
 
+Si Furious demande une ligne de grille tarifaire, ouvrir le crayon de la saisie
+et choisir **Prestation Furious**. La liste est lue dans `ProjectRateCard` pour
+ce projet uniquement et exclut les lignes `exclude_from_sprint=1`. Le compte API
+doit pouvoir consulter les **Grilles tarifaires projet**. Aucun tarif ni montant
+n’est affiché ou modifié par Clock. Le choix explicite **Non vendu (hors grille)**
+envoie `project_rate_card_id=-1`, comme documenté par Furious ; il n’est jamais
+choisi automatiquement. Une prestation réelle est revalidée avant l’export.
+Le choix est conservé sur la saisie et contrôlé lors d’une réconciliation.
+Une migration ajoute deux colonnes SQLite sans supprimer les anciennes données.
+
 ### Exports interrompus
 
 Le serveur réserve les saisies avant l’envoi pour éviter les doubles clics et

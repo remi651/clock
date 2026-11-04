@@ -49,6 +49,12 @@ ENSUITE
 - Utilisez le bouton Réglages pour modifier les accès API si nécessaire.
 - Les temps et les épingles restent sur votre Mac. L’export est manuel et crée
   de vrais temps dans Furious : utilisez un projet de test pour le premier essai.
+- Si Furious demande une ligne de grille tarifaire, cliquez sur le crayon du
+  temps concerné, choisissez « Prestation Furious », puis enregistrez avant de
+  réessayer l’export. Les lignes sont celles du projet dans Furious. Le choix
+  « Non vendu (hors grille) » est volontaire et ne doit être utilisé que si ce
+  temps est réellement hors grille. Aucune ligne n’est choisie automatiquement.
+  Les saisies existantes sont conservées lors de la mise à jour.
 - Fermer l’onglet n’arrête pas le moteur. Pour quitter, utilisez Katra Clock >
   Quitter dans le menu de l’application ou Quitter depuis son icône dans le Dock.
 - La minuterie reste enregistrée jusqu’à son arrêt explicite, même si vous

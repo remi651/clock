@@ -85,6 +85,7 @@ test('Furious simulé : export interrompu, vérification sans renvoi, puis expor
   await page.getByRole('button', { name: 'Terminer', exact: true }).click();
   await page.getByRole('button', { name: 'Modifier la saisie Identité du studio', exact: true }).click();
   await page.getByLabel('Durée (heures:minutes:secondes)').fill('01:45:00');
+  await page.getByLabel('Prestation Furious').selectOption({ label: 'Direction artistique' });
   await page.getByRole('button', { name: 'Enregistrer les modifications' }).click();
   await expect(page.getByRole('button', { name: /Exporter ma journée/ })).toBeEnabled();
   await page.getByRole('button', { name: /Exporter ma journée/ }).click();
@@ -97,6 +98,9 @@ test('Furious simulé : export interrompu, vérification sans renvoi, puis expor
   await page.getByRole('button', { name: 'Démarrer', exact: true }).last().click();
   await expect(page.locator('#running-time')).not.toHaveText('00:00:00');
   await page.getByRole('button', { name: 'Terminer', exact: true }).click();
+  await page.getByRole('button', { name: 'Modifier la saisie Site du studio', exact: true }).click();
+  await page.getByLabel('Prestation Furious').selectOption({ label: 'Direction artistique' });
+  await page.getByRole('button', { name: 'Enregistrer les modifications' }).click();
   await page.getByRole('button', { name: /Exporter ma journée/ }).click();
   await expect(page.locator('.pill.exported')).toHaveCount(2);
   expect((await (await page.request.get(`${origin}/__test/writes`)).json()).count).toBe(2);

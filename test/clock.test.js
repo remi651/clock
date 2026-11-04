@@ -7,6 +7,7 @@ import { Store } from '../lib/store.js';
 import { dayAt, splitInterval } from '../lib/time.js';
 import { exportDay } from '../lib/furious.js';
 import { createApp, authorizedGoogleUser } from '../server.js';
+import { DatabaseSync } from 'node:sqlite';
 
 const project = { id: 'p1', name: 'Projet réel de test', client: 'Test' };
 const user = { id: 'u1', name: 'Camille', email: 'camille@studio-katra.com' };
@@ -107,6 +108,55 @@ test('Minuterie, sessions et saisies persistent après redémarrage', () => {
     assert.equal(store.entries(user.id, '2026-11-04')[0].status, 'uncertain');
     assert.equal(store.claimExport(user.id, '2026-11-04').length, 0);
   } finally { store?.close(); rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('Migration des anciennes saisies : aucune perte et conservation de la prestation sélectionnée', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'clock-rate-migration-'));
+  const path = join(dir, 'clock.sqlite');
+  let store;
+  try {
+    store = new Store(path);
+    store.start(user.id, project, 'Travail existant', timestamp);
+    store.stop(user.id, timestamp + 60_000);
+    const id = store.entries(user.id, '2026-11-04')[0].id;
+    store.close();
+    const legacy = new DatabaseSync(path);
+    legacy.exec('ALTER TABLE entries DROP COLUMN project_rate_card_id; ALTER TABLE entries DROP COLUMN project_rate_card_label;');
+    legacy.close();
+    store = new Store(path);
+    assert.equal(store.entry(user.id, id).seconds, 60);
+    assert.equal(store.entry(user.id, id).project_rate_card_id, null);
+    store.edit(user.id, id, 60, 'Travail existant', { id: 4201, label: 'Direction artistique' });
+    store.close();
+    store = new Store(path);
+    assert.equal(store.entry(user.id, id).project_rate_card_id, 4201);
+    assert.equal(store.entry(user.id, id).project_rate_card_label, 'Direction artistique');
+    assert.throws(() => store.edit('other', id, 60, '', { id: -1, label: 'Non vendu' }));
+    store.exportResult(id, 'exported', 'remote-1');
+    assert.throws(() => store.edit(user.id, id, 60, '', null));
+    assert.equal(store.entry(user.id, id).project_rate_card_id, 4201);
+  } finally { store?.close(); rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('HTTP : seule une prestation disponible du projet peut être affectée à une saisie en attente', async t => {
+  const { base, store, headers } = await fixture(t, { demo: true });
+  store.start(user.id, { id: 'demo-1', name: 'Projet' }, '', Date.now() - 60_000);
+  store.stop(user.id);
+  const entry = store.entries(user.id, dayAt())[0];
+  const patch = (id, ownerHeaders = headers) => fetch(`${base}/api/entries/${entry.id}`, {
+    method: 'PATCH', headers: ownerHeaders, body: JSON.stringify({ seconds: 60, note: '', projectRateCardId: id }),
+  });
+  assert.equal((await patch(999999)).status, 400);
+  assert.equal((await patch(0)).status, 400);
+  assert.equal((await patch(-2)).status, 400);
+  const other = store.createSession({ ...user, id: 'other-user' });
+  assert.equal((await patch(1001, { ...headers, Cookie: `katra_session=${other.id}`, 'X-CSRF-Token': other.csrf })).status, 409);
+  assert.equal((await patch(1001)).status, 200);
+  assert.equal(store.entry(user.id, entry.id).project_rate_card_label, 'Conception (démonstration)');
+  assert.equal((await patch(-1)).status, 200);
+  assert.equal(store.entry(user.id, entry.id).project_rate_card_id, -1);
+  assert.equal((await patch(null)).status, 200);
+  assert.equal(store.entry(user.id, entry.id).project_rate_card_id, null);
 });
 
 test('Export : concurrence et deuxième clic ne renvoient pas la même saisie', async () => {

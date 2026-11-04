@@ -18,14 +18,19 @@ const provider = createFurious({ username: 'e2e-test-account', password: 'fake-p
     const email = JSON.parse(query.match(/email:\{eq:("[^"]*")\}/)[1]);
     body = { success: true, data: { User: [{ id: email.startsWith('desktop') ? 17 : 18, pseudo: email.split('@')[0], email }] } };
   } else if (url.pathname.endsWith('/project/')) body = { success: true, data: { Project: projects } };
+  else if (url.pathname.endsWith('/project-rate-card/')) {
+    const projectId = Number(query.match(/project_id:\{eq:"(\d+)"\}/)[1]);
+    body = { success: true, data: { ProjectRateCard: [{ id: projectId * 100 + 1, project_id: projectId, rate_card_row_label: 'Direction artistique', exclude_from_sprint: 0 }] } };
+  }
   else if (url.pathname.endsWith('/user-daily-hours-history/')) {
-    const userId = Number(query.match(/user_id:\{eq:(\d+)\}/)[1]);
+    const userId = Number(query.match(/user_id:\{eq:"(\d+)"\}/)[1]);
     body = { success: true, data: { UserDailyHoursHistory: [{ id: 1, user_id: userId, date: '2020-01-01', daily_hours: 7 }] } };
   } else if (options.method === 'GET' && url.pathname.endsWith('/sprint/')) {
     const marker = JSON.parse(query.match(/description:\{like:("[^"]*")\}/)[1]);
     body = { success: true, data: { Sprint: remoteEntries.filter(row => row.description.includes(marker)) } };
   } else if (options.method === 'POST' && url.pathname.endsWith('/sprint/')) {
     const data = options.data.data;
+    if (data.project_rate_card_id !== data.project_id * 100 + 1 && data.project_rate_card_id !== -1) return { data: { success: false, message: { project_rate_card_id: 'required' } } };
     const row = { ...data, id: 100 + remoteEntries.length, time_in_hours: String(data.num_days * 7) };
     remoteEntries.push(row);
     if (!interrupted.has(data.assigned_people)) {

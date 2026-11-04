@@ -14,7 +14,11 @@ app.get('/__test/new-personal', async (_req, res) => {
       ready: true,
       async identity() { return { id: 17, pseudo: 'camille' }; },
       async projects() { return [{ id: '42', name: 'Projet personnel', client: 'Studio Katra' }]; },
-      async exportEntry(_user, entry) { return { id: `fake-${entry.id}` }; },
+      async rateCards() { return [{ id: 4201, label: 'Direction artistique' }]; },
+      async exportEntry(_user, entry) {
+        if (entry.project_rate_card_id !== 4201) throw new Error('Prestation manquante dans la simulation');
+        return { id: `fake-${entry.id}` };
+      },
     }),
   });
   res.redirect(personal.openUrl);

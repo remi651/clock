@@ -146,6 +146,11 @@ export function createApp({ demo = false, store, provider, appUrl = 'http://loca
     const user = req.session.user.id;
     res.json({ day, today: dayAt(), entries: store.entries(user, day), timer: store.timer(user), serverTime: Date.now() });
   });
+  app.get('/api/projects/:projectId/rate-cards', async (req, res) => {
+    if (!provider.rateCards) return res.status(503).json({ error: 'La liste des prestations Furious n’est pas disponible.' });
+    try { res.json({ rateCards: await provider.rateCards(req.session.user, req.params.projectId) }); }
+    catch (error) { res.status(503).json({ error: error.message }); }
+  });
   app.post('/api/timer/start', async (req, res) => {
     const { projectId, note = '' } = req.body || {};
     if (typeof projectId !== 'string' || typeof note !== 'string' || note.length > 500) return res.status(400).json({ error: 'Projet ou description invalide.' });
@@ -160,12 +165,27 @@ export function createApp({ demo = false, store, provider, appUrl = 'http://loca
     try { store.stop(req.session.user.id); res.json({ ok: true }); }
     catch (error) { res.status(409).json({ error: error.message }); }
   });
-  app.patch('/api/entries/:id', (req, res) => {
+  app.patch('/api/entries/:id', async (req, res) => {
     const { seconds, note } = req.body || {};
     if (!Number.isSafeInteger(seconds) || seconds < 1 || seconds > 86400 || typeof note !== 'string' || note.length > 500) {
       return res.status(400).json({ error: 'Indiquez une durée entre une seconde et 24 heures, et une description de 500 caractères maximum.' });
     }
-    try { store.edit(req.session.user.id, req.params.id, seconds, note.trim()); res.json({ ok: true }); }
+    try {
+      let rateCard;
+      if (Object.hasOwn(req.body, 'projectRateCardId')) {
+        const id = req.body.projectRateCardId;
+        const entry = store.entry(req.session.user.id, req.params.id);
+        if (!entry || entry.status !== 'pending') return res.status(409).json({ error: 'Cette saisie est introuvable ou son export est déjà engagé.' });
+        if (id === null) rateCard = null;
+        else if (id === -1) rateCard = { id: -1, label: 'Non vendu (hors grille)' };
+        else if (Number.isSafeInteger(id) && id > 0 && provider.rateCards) {
+          rateCard = (await provider.rateCards(req.session.user, entry.project_id)).find(choice => choice.id === id);
+          if (!rateCard) return res.status(400).json({ error: 'Cette prestation ne peut pas recevoir du temps sur ce projet.' });
+        } else return res.status(400).json({ error: 'Prestation Furious invalide.' });
+      }
+      store.edit(req.session.user.id, req.params.id, seconds, note.trim(), rateCard);
+      res.json({ ok: true });
+    }
     catch (error) { res.status(409).json({ error: error.message }); }
   });
   app.post('/api/export', async (req, res) => {
