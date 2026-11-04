@@ -125,7 +125,7 @@ export function createApp({ demo = false, store, provider, appUrl = 'http://loca
     res.json({ ok: true });
   });
   app.get('/api/projects', async (req, res) => {
-    try { res.json({ projects: await provider.projects(req.session.user), pinnedProjectIds: store.pins(req.session.user.id) }); }
+    try { res.json({ projects: await provider.projects(req.session.user), pinnedProjectIds: store.pins(req.session.user.id), projectRates: store.rates(req.session.user.id) }); }
     catch (error) { res.status(503).json({ error: error.message }); }
   });
   app.put('/api/pins/:projectId', async (req, res) => {
@@ -151,6 +151,23 @@ export function createApp({ demo = false, store, provider, appUrl = 'http://loca
     try { res.json({ rateCards: await provider.rateCards(req.session.user, req.params.projectId) }); }
     catch (error) { res.status(503).json({ error: error.message }); }
   });
+  async function selectedRate(user, projectId, id) {
+    if (id == null) return null;
+    if (id === -1) return { id: -1, label: 'Non vendu (hors grille)' };
+    if (!Number.isSafeInteger(id) || id <= 0 || !provider.rateCards) throw new Error('Prestation Furious invalide.');
+    const rate = (await provider.rateCards(user, projectId)).find(choice => choice.id === id);
+    if (!rate) throw new Error('Cette prestation ne peut pas recevoir du temps sur ce projet.');
+    return rate;
+  }
+  app.put('/api/projects/:projectId/rate-card', async (req, res) => {
+    try {
+      const projectId = req.params.projectId;
+      if (!(await provider.projects(req.session.user)).some(p => p.id === projectId)) return res.status(400).json({ error: 'Projet inaccessible.' });
+      const rate = await selectedRate(req.session.user, projectId, req.body?.projectRateCardId);
+      store.setRate(req.session.user.id, projectId, rate);
+      res.json({ ok: true });
+    } catch (error) { res.status(400).json({ error: error.message }); }
+  });
   app.post('/api/timer/start', async (req, res) => {
     const { projectId, note = '' } = req.body || {};
     if (typeof projectId !== 'string' || typeof note !== 'string' || note.length > 500) return res.status(400).json({ error: 'Projet ou description invalide.' });
@@ -158,7 +175,11 @@ export function createApp({ demo = false, store, provider, appUrl = 'http://loca
     try { project = (await provider.projects(req.session.user)).find(p => p.id === projectId); }
     catch (error) { return res.status(503).json({ error: error.message }); }
     if (!project) return res.status(400).json({ error: 'Ce projet n’est pas ouvert ou ne vous est pas accessible.' });
-    try { res.json({ timer: store.start(req.session.user.id, project, note.trim()) }); }
+    try {
+      const saved = store.rates(req.session.user.id).find(r => r.project_id === projectId);
+      const rate = await selectedRate(req.session.user, projectId, saved?.id);
+      res.json({ timer: store.start(req.session.user.id, project, note.trim(), Date.now(), rate) });
+    }
     catch (error) { res.status(409).json({ error: error.message }); }
   });
   app.post('/api/timer/stop', (req, res) => {

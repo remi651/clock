@@ -4,7 +4,8 @@ const editForm = document.querySelector('#edit-form');
 let session, projects = [], dayData = { entries: [], timer: null }, selectedDay, projectError = '';
 let editingId, toastTimeout, busy = false, serverOffset = 0;
 let pinnedProjectIds = [], projectFilter = '', pinBusy = false;
-let editLoadSequence = 0;
+let projectRates = [];
+const rateChoices = new Map();
 const icon = (name, cls = '') => {
   const paths = {
     clock: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3 2"/>',
@@ -85,7 +86,7 @@ async function loadData() {
   const [projectResult, dayResult] = await Promise.allSettled([
     api('/api/projects'), api(`/api/day?day=${encodeURIComponent(selectedDay)}`),
   ]);
-  if (projectResult.status === 'fulfilled') { projects = projectResult.value.projects; pinnedProjectIds = projectResult.value.pinnedProjectIds || []; projectError = ''; }
+  if (projectResult.status === 'fulfilled') { projects = projectResult.value.projects; projectRates = projectResult.value.projectRates || []; pinnedProjectIds = projectResult.value.pinnedProjectIds || []; projectError = ''; }
   else { projects = []; projectError = projectResult.reason.message; }
   if (dayResult.status === 'rejected') throw dayResult.reason;
   dayData = dayResult.value;
@@ -136,8 +137,38 @@ function renderProjects(filter = '') {
   container.innerHTML = visible.map(project => {
     const running = dayData.timer?.project_id === project.id;
     const pinned = pinnedProjectIds.includes(project.id);
-    return `<article class="project ${running ? 'running' : ''} ${pinned ? 'pinned' : ''}"><div class="project-top"><span class="client">${escape(project.client || 'Studio Katra')}</span><button class="pin-button ${pinned ? 'is-pinned' : ''}" data-pin="${escape(project.id)}" aria-pressed="${pinned}" aria-label="${pinned ? 'Désépingler' : 'Épingler'} ${escape(project.name)}" title="${pinned ? 'Désépingler ce projet' : 'Épingler ce projet'}" ${pinBusy ? 'disabled' : ''}>${icon('pin')}</button></div><div class="project-footer"><h3>${escape(project.name)}</h3><button class="start-project ${running ? 'running' : ''}" data-start="${escape(project.id)}" aria-label="${running ? 'En cours' : 'Démarrer'}" title="${running ? 'En cours' : 'Démarrer'} ${escape(project.name)}" ${running ? 'disabled' : ''}>${icon(running ? 'clock' : 'play')}</button></div></article>`;
+    const rate = projectRates.find(r => r.project_id === project.id);
+    const choices = rateChoices.get(project.id) || [];
+    const options = [...choices];
+    if (rate?.id != null && rate.id !== -1 && !options.some(r => r.id === rate.id)) options.push(rate);
+    const picker = `<select data-rate="${escape(project.id)}" aria-label="Prestation Furious — ${escape(project.name)}" ${running ? 'disabled' : ''}><option value="">Choisir une prestation</option><option value="-1" ${rate?.id === -1 ? 'selected' : ''}>Non vendu (hors grille)</option>${options.map(r => `<option value="${r.id}" ${rate?.id === r.id ? 'selected' : ''}>${escape(r.label)}</option>`).join('')}</select>`;
+    return `<article class="project ${running ? 'running' : ''} ${pinned ? 'pinned' : ''}"><div class="project-top"><span class="client">${escape(project.client || 'Studio Katra')}</span><button class="pin-button ${pinned ? 'is-pinned' : ''}" data-pin="${escape(project.id)}" aria-pressed="${pinned}" aria-label="${pinned ? 'Désépingler' : 'Épingler'} ${escape(project.name)}" title="${pinned ? 'Désépingler ce projet' : 'Épingler ce projet'}" ${pinBusy ? 'disabled' : ''}>${icon('pin')}</button></div><h3>${escape(project.name)}</h3><div class="project-footer">${picker}<button class="start-project ${running ? 'running' : ''}" data-start="${escape(project.id)}" aria-label="${running ? 'En cours' : 'Démarrer'}" title="${running ? 'En cours' : 'Démarrer'} ${escape(project.name)}" ${running ? 'disabled' : ''}>${icon(running ? 'clock' : 'play')}</button></div></article>`;
   }).join('') || `<div class="empty">${projectError ? 'Connexion Furious nécessaire pour afficher vos projets.' : filter ? 'Aucun projet ne correspond à votre recherche.' : 'Aucun projet ouvert pour le moment.'}</div>`;
+  container.querySelectorAll('[data-rate]').forEach(select => {
+    let loading = false;
+    const load = async () => {
+      const id = select.dataset.rate;
+      if (loading) return;
+      loading = true;
+      try {
+        const choices = rateChoices.get(id) || (await api(`/api/projects/${encodeURIComponent(id)}/rate-cards`)).rateCards;
+        rateChoices.set(id, choices);
+        for (const current of document.querySelectorAll('[data-rate]')) {
+          if (current.dataset.rate !== id) continue;
+          for (const choice of choices) {
+            if (![...current.options].some(o => o.value === String(choice.id))) current.add(new Option(choice.label, String(choice.id)));
+          }
+        }
+      } catch (error) { toast(error.message, true); }
+      finally { loading = false; }
+    };
+    select.closest('.project').addEventListener('pointerenter', load);
+    select.addEventListener('focus', load);
+    select.addEventListener('pointerdown', load);
+    select.addEventListener('change', () => act(() => api(`/api/projects/${encodeURIComponent(select.dataset.rate)}/rate-card`, {
+      method: 'PUT', body: JSON.stringify({ projectRateCardId: select.value === '' ? null : Number(select.value) }),
+    }), 'Prestation enregistrée pour ce projet.'));
+  });
   container.querySelectorAll('[data-start]').forEach(button => button.addEventListener('click', () => {
     const projectId = button.dataset.start;
     act(() => api('/api/timer/start', { method: 'POST', body: JSON.stringify({ projectId }) }), 'Minuterie démarrée. Bonne création !');
@@ -179,7 +210,7 @@ function tick() {
 async function act(action, success) {
   if (busy) return;
   busy = true;
-  document.querySelectorAll('[data-start],[data-pin],[data-reconcile],#stop-timer,#export-day').forEach(b => { b.disabled = true; });
+  document.querySelectorAll('[data-start],[data-pin],[data-rate],[data-reconcile],#stop-timer,#export-day').forEach(b => { b.disabled = true; });
   try {
     const result = await action();
     if (result.message) toast(result.message, Boolean(result.uncertain || result.failed));
@@ -218,28 +249,7 @@ function bindDashboard() {
     editForm.elements.duration.value = duration(entry.seconds);
     editForm.elements.note.value = entry.note;
     document.querySelector('#edit-error').textContent = '';
-    const select = editForm.elements.projectRateCardId;
-    const initial = entry.project_rate_card_id === null || entry.project_rate_card_id === undefined ? '' : String(entry.project_rate_card_id);
-    select.innerHTML = '<option value="">Sans sélection</option><option value="-1">Non vendu (hors grille)</option>';
-    if (initial && initial !== '-1') select.add(new Option(entry.project_rate_card_label || 'Prestation enregistrée', initial));
-    select.value = initial;
-    select.disabled = true;
-    const status = document.querySelector('#rate-card-status');
-    status.textContent = 'Chargement des prestations du projet…';
-    const sequence = ++editLoadSequence;
     dialog.showModal();
-    api(`/api/projects/${encodeURIComponent(entry.project_id)}/rate-cards`).then(result => {
-      if (!dialog.open || sequence !== editLoadSequence) return;
-      select.innerHTML = '<option value="">Sans sélection</option><option value="-1">Non vendu (hors grille)</option>';
-      for (const choice of result.rateCards) select.add(new Option(choice.label, String(choice.id)));
-      if (initial && initial !== '-1' && !result.rateCards.some(choice => String(choice.id) === initial)) {
-        select.add(new Option(`${entry.project_rate_card_label || 'Prestation enregistrée'} — indisponible`, initial));
-      }
-      select.value = initial; // Never select a billable line automatically.
-      status.textContent = result.rateCards.length ? '' : 'Ce projet ne propose aucune ligne de grille tarifaire disponible.';
-    }).catch(error => {
-      if (dialog.open && sequence === editLoadSequence) status.textContent = error.message;
-    }).finally(() => { if (dialog.open && sequence === editLoadSequence) select.disabled = false; });
   }));
 }
 
@@ -251,11 +261,7 @@ editForm.addEventListener('submit', async event => {
   const button = editForm.querySelector('[type=submit]');
   button.disabled = true;
   try {
-    const entry = dayData.entries.find(item => item.id === editingId);
-    const selected = editForm.elements.projectRateCardId.value;
-    const projectRateCardId = selected === '' ? null : Number(selected);
-    const changed = projectRateCardId !== (entry.project_rate_card_id ?? null);
-    await api(`/api/entries/${encodeURIComponent(editingId)}`, { method: 'PATCH', body: JSON.stringify({ seconds, note: editForm.elements.note.value, ...(changed ? { projectRateCardId } : {}) }) });
+    await api(`/api/entries/${encodeURIComponent(editingId)}`, { method: 'PATCH', body: JSON.stringify({ seconds, note: editForm.elements.note.value }) });
     dialog.close();
     await loadData();
     toast('Saisie mise à jour.');

@@ -78,7 +78,10 @@ Champs lus : `id,project_id,rate_card_row_label,exclude_from_sprint`. Les lignes
 exclues des temps ne sont pas proposées. La pagination est parcourue, et une
 ligne appartenant à un autre projet est refusée. Les prix ne sont pas demandés.
 
-L’utilisateur choisit la prestation dans la modification d’une saisie. Le
+L’utilisateur choisit la prestation dans le bloc du projet, à côté du bouton ▶.
+Le choix est mémorisé par utilisateur et projet, puis copié dans la minuterie
+et chaque intervalle terminé. Les saisies encore à exporter sans prestation
+sont complétées lors du choix, sans réaffecter celles déjà renseignées. Le
 `project_rate_card_id` choisi est conservé localement puis envoyé en entier dans
 la création du temps. La valeur spéciale `-1` signifie **non vendu**, d’après le
 contrat de création page 99, et n’est utilisée que sur choix explicite. Une

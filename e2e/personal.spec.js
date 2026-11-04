@@ -26,10 +26,10 @@ test('Mac personnel simulé : configuration, ouverture sans Google, réglages et
   await expect(page.locator('.timer-title')).toHaveText('Projet personnel');
   await page.getByRole('button', { name: 'Terminer', exact: true }).click();
   await expect(page.locator('.pill.pending')).toHaveCount(1);
-  await page.getByRole('button', { name: 'Modifier la saisie Projet personnel', exact: true }).click();
-  await expect(page.getByLabel('Prestation Furious')).toHaveValue('');
-  await page.getByLabel('Prestation Furious').selectOption({ label: 'Direction artistique' });
-  await page.getByRole('button', { name: 'Enregistrer les modifications' }).click();
+  const rate = page.getByRole('combobox', { name: 'Prestation Furious — Projet personnel' });
+  await rate.focus();
+  await expect(rate.locator('option', { hasText: 'Direction artistique' })).toHaveCount(1);
+  await rate.selectOption({ label: 'Direction artistique' });
   await expect(page.locator('.entry-rate-card')).toHaveText('Direction artistique');
   await page.reload();
   await expect(page.locator('.entry-rate-card')).toHaveText('Direction artistique');

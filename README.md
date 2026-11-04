@@ -175,8 +175,10 @@ fin, une description et `is_validated=0` : **l’export ne valide pas automatiqu
 les temps** dans Furious. La durée n’est pas arrondie localement. Le traitement
 effectif des décimales par l’instance reste à confirmer lors de l’essai réel.
 
-Si Furious demande une ligne de grille tarifaire, ouvrir le crayon de la saisie
-et choisir **Prestation Furious**. La liste est lue dans `ProjectRateCard` pour
+Si Furious demande une ligne de grille tarifaire, choisir la prestation dans le bloc du projet,
+sous son nom, à côté du bouton ▶. Le choix est mémorisé par projet et accompagne
+les prochains temps. Il complète aussi les saisies à exporter sans prestation ;
+les affectations existantes sont conservées. La liste est lue dans `ProjectRateCard` pour
 ce projet uniquement et exclut les lignes `exclude_from_sprint=1`. Le compte API
 doit pouvoir consulter les **Grilles tarifaires projet**. Aucun tarif ni montant
 n’est affiché ou modifié par Clock. Le choix explicite **Non vendu (hors grille)**

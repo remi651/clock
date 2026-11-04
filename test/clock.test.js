@@ -297,3 +297,39 @@ test('OAuth : state lié au navigateur, nonce, session sécurisée et refus du m
     assert.ok(!response.headers.getSetCookie().some(x => x.startsWith('katra_session=')));
   }
 });
+
+test('Prestations par projet : les temps passés conservent leur choix au changement de minuterie', () => {
+  const store = new Store(':memory:');
+  try {
+    const a = { id: 4201, label: 'Conception' }, b = { id: 4301, label: 'Production' };
+    store.start(user.id, project, '', timestamp, a);
+    store.start(user.id, { id: 'p2', name: 'Autre' }, '', timestamp + 60_000, b);
+    store.stop(user.id, timestamp + 120_000);
+    const rows = store.entries(user.id, dayAt(timestamp));
+    assert.equal(rows.find(e => e.project_id === 'p1').project_rate_card_id, 4201);
+    assert.equal(rows.find(e => e.project_id === 'p2').project_rate_card_id, 4301);
+    store.setRate(user.id, 'p1', b);
+    assert.equal(store.entry(user.id, rows.find(e => e.project_id === 'p1').id).project_rate_card_id, 4201);
+    assert.equal(store.rates('autre').length, 0);
+    store.start(user.id, project, '', timestamp + 120_000);
+    store.stop(user.id, timestamp + 180_000);
+    store.setRate(user.id, 'p1', a);
+    assert.equal(store.entries(user.id, dayAt(timestamp)).filter(e => e.project_id === 'p1').every(e => e.project_rate_card_id === 4201), true);
+  } finally { store.close(); }
+});
+
+test('HTTP : sélection dans le projet, persistance et refus d’une prestation invalide sans interrompre le timer', async t => {
+  const { base, store, headers } = await fixture(t, { demo: true });
+  const projects = (await (await fetch(`${base}/api/projects`, { headers })).json()).projects;
+  const id = projects[0].id;
+  const url = `${base}/api/projects/${id}/rate-card`;
+  assert.equal((await fetch(url, { method: 'PUT', headers, body: JSON.stringify({ projectRateCardId: 1001 }) })).status, 200);
+  assert.equal((await fetch(`${base}/api/timer/start`, { method: 'POST', headers, body: JSON.stringify({ projectId: id }) })).status, 200);
+  const timer = store.timer(user.id);
+  assert.equal(timer.project_rate_card_id, 1001);
+  assert.equal((await fetch(url, { method: 'PUT', headers, body: JSON.stringify({ projectRateCardId: 999 }) })).status, 400);
+  assert.deepEqual(store.timer(user.id), timer);
+  const result = await (await fetch(`${base}/api/projects`, { headers })).json();
+  assert.equal(result.projectRates.find(r => r.project_id === id).id, 1001);
+  assert.equal((await fetch(`${base}/api/projects/inaccessible/rate-card`, { method: 'PUT', headers, body: JSON.stringify({ projectRateCardId: -1 }) })).status, 400);
+});
