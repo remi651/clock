@@ -1,0 +1,38 @@
+# Creating this Blueprint on Render requires approval of a paid web service
+# and persistent disk. No credentials belong in this file.
+services:
+  - type: web
+    name: katra-clock
+    runtime: node
+    branch: main
+    plan: starter
+    region: frankfurt
+    buildCommand: npm ci --omit=dev --no-fund
+    startCommand: npm start
+    healthCheckPath: /health
+    autoDeploy: false
+    domains:
+      - clock.studio-katra.com
+    disk:
+      name: clock-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: NODE_VERSION
+        value: "24"
+      - key: NODE_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+      - key: APP_URL
+        value: https://clock.studio-katra.com
+      - key: DATABASE_PATH
+        value: /var/data/clock.sqlite
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: FURIOUS_API_USERNAME
+        sync: false
+      - key: FURIOUS_API_PASSWORD
+        sync: false
