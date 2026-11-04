@@ -140,7 +140,7 @@ test('Export refusé : signaler le droit de création ou les champs concernés s
   }
 });
 
-test('Historique journalier absent : aucun défaut de 7 ou 8 heures supposé ; secours explicite uniquement', async () => {
+test('Mode automatique : aucun défaut de 7 ou 8 heures supposé ; référence manuelle prioritaire', async () => {
   const { provider, handler } = apiFixture({ 'user-daily-hours-history': async () => ({ success: true, data: { UserDailyHoursHistory: [] } }) });
   const store = new Store(':memory:');
   try {
@@ -151,6 +151,34 @@ test('Historique journalier absent : aucun défaut de 7 ou 8 heures supposé ; s
     const context = await configured.prepareExport(user, day);
     assert.equal(context.hours, 8);
   } finally { store.close(); }
+});
+
+test('Journée manuelle : un export de 7 heures envoie 1 jour sans lire l’historique interdit', async () => {
+  let historyRequests = 0;
+  const { handler, calls } = apiFixture({ 'user-daily-hours-history': async () => {
+    historyRequests++;
+    return { success: false, message: 'Lecture interdite' };
+  } });
+  const provider = createFurious({ username: 'api-clock-test', password: 'fake-test-password', hoursPerDay: 7, transport: handler });
+  const store = new Store(':memory:');
+  try {
+    addEntry(store, 7 * 3600);
+    const result = await exportDay(store, provider, user, day);
+    assert.equal(result.exported, 1);
+    assert.equal(historyRequests, 0);
+    const write = calls.find(c => c.method === 'POST' && c.url.endsWith('/sprint/'));
+    assert.equal(write.data.data.num_days, 1);
+    assert.equal(store.entries(user.id, day)[0].status, 'exported');
+  } finally { store.close(); }
+});
+
+test('Référence manuelle invalide : aucun appel de l’historique ou écriture de temps', async () => {
+  for (const hoursPerDay of [0, -1, 25, true, 'abc']) {
+    const { handler, calls } = apiFixture();
+    const provider = createFurious({ username: 'api-clock-test', password: 'fake-test-password', hoursPerDay, transport: handler });
+    await assert.rejects(() => provider.dailyHours({ id: 17 }, day), /durée de journée/);
+    assert.equal(calls.length, 0);
+  }
 });
 
 test('Auth partagée et renouvellement du jeton expiré, sans exposer les erreurs contenant des secrets', async () => {

@@ -159,11 +159,16 @@ de visibilité dépendent des permissions du compte API : configurer son périm�
 en conséquence. Tous les projets ouverts de ce périmètre sont proposés aux
 collaborateurs du studio en l’absence de restriction explicite.
 
-La durée envoyée est `secondes / (heures_journalières × 3600)`. L’horaire est lu
-dans `UserDailyHoursHistory`, en prenant la dernière valeur effective à la date
-de la saisie. Si cet historique est vide, un administrateur peut fournir
-`FURIOUS_HOURS_PER_DAY` comme secours explicite ; aucune journée de 7 ou 8 heures
-n’est supposée. Un horaire invalide ou une correspondance ambiguë bloque l’envoi.
+La durée envoyée est `secondes / (heures_journalières × 3600)`. Par défaut,
+l’horaire est lu dans `UserDailyHoursHistory`, en prenant la dernière valeur
+effective à la date de la saisie. Une valeur manuelle dans les Réglages personnels
+ou `FURIOUS_HOURS_PER_DAY` est prioritaire : l’historique n’est alors pas demandé,
+même si le compte API ne peut pas le lire. Cette valeur doit correspondre
+exactement à la journée utilisée dans Furious ; aucune journée de 7 ou 8 heures
+n’est supposée en mode automatique. Pour l’installation Mac personnelle, le
+propriétaire a confirmé une journée de 7 heures : cette référence est appliquée
+aux réglages existants sans valeur et reste modifiable. Un horaire invalide ou
+une correspondance ambiguë bloque l’envoi.
 
 Les temps sont créés via `POST /api/v2/sprint/`, avec la même date de début et de
 fin, une description et `is_validated=0` : **l’export ne valide pas automatiquement

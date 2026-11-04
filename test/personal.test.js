@@ -73,6 +73,7 @@ test('Personnel : boucle locale, clé à usage unique, absence de Google, contr�
   assert.equal(session.authMode, 'personal');
   assert.equal(session.googleConfigured, false);
   assert.equal(session.user.email, config.email);
+  assert.equal((await (await request('/desktop/config')).json()).hoursPerDay, 7);
   assert.equal((await request('/auth/google')).status, 404);
   assert.equal((await request('/api/projects')).status, 200);
 });
@@ -96,6 +97,7 @@ test('Personnel : aucun fichier d’identifiants ; conservation des temps et des
     assert.equal((await request('/api/session')).status, 403);
     await request(server.openUrl);
     const restored = await (await request('/api/day')).json();
+    assert.equal((await (await request('/desktop/config')).json()).hoursPerDay, 7);
     assert.equal(restored.entries.length, 1);
     assert.ok(restored.entries[0].seconds >= 60);
     assert.equal(restored.timer.project_id, '43');

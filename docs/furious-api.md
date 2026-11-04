@@ -61,8 +61,11 @@ Les droits du compte API limitent aussi les résultats accessibles.
 Champs `id,user_id,date,daily_hours` ; filtre sur `user_id` et `date.leq` de la
 saisie ; ordre `date:desc,id:desc`, limite 1. La dernière valeur à la date de la
 saisie sert à convertir la durée en jours. Aucune valeur par défaut n’est déduite
-des exemples numériques du document. Un secours global explicite est possible
-si aucun enregistrement n’est présent, via `FURIOUS_HOURS_PER_DAY`.
+des exemples numériques du document. Une référence manuelle explicite peut être
+définie dans les réglages personnels ou via `FURIOUS_HOURS_PER_DAY`. Elle est
+prioritaire et supprime entièrement cette lecture API, pour les comptes qui
+n’en disposent pas. Elle doit correspondre au nombre d’heures d’une journée
+dans la configuration réelle de Furious.
 
 ## Création du temps — pages 99 à 100
 

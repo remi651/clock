@@ -5,6 +5,7 @@ test('Mac personnel simulé : configuration, ouverture sans Google, réglages et
   page.on('pageerror', error => errors.push(error.message));
   await page.goto('/__test/new-personal');
   await expect(page.getByRole('heading', { name: 'Votre espace, sur votre Mac.' })).toBeVisible();
+  await expect(page.getByLabel('Durée d’une journée dans Furious')).toHaveValue('7');
   await page.getByLabel('Votre adresse Studio Katra').fill('camille@studio-katra.com');
   await page.getByLabel('Identifiant du compte API Furious').fill('fake-personal-api');
   await page.getByLabel('Mot de passe du compte API Furious').fill('fake-personal-password');
@@ -20,6 +21,7 @@ test('Mac personnel simulé : configuration, ouverture sans Google, réglages et
   await page.getByRole('button', { name: 'Réglages', exact: true }).click();
   await expect(page.getByLabel('Mot de passe du compte API Furious')).toHaveValue('');
   await expect(page.getByLabel('Votre adresse Studio Katra')).toHaveValue('camille@studio-katra.com');
+  await expect(page.getByLabel('Durée d’une journée dans Furious')).toHaveValue('7');
   await page.getByRole('button', { name: 'Vérifier et ouvrir Clock' }).click();
   await expect(page.locator('.timer-title')).toHaveText('Projet personnel');
   await page.getByRole('button', { name: 'Terminer', exact: true }).click();

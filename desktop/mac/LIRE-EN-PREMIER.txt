@@ -32,6 +32,11 @@ Un formulaire demande :
 - l’identifiant du compte API Furious ;
 - le mot de passe de ce compte API.
 
+La référence de conversion personnelle est de 7 heures par journée, valeur
+confirmée par le propriétaire. L’application utilise cette référence sans lire
+l’API d’historique des horaires. Elle reste modifiable dans les réglages si
+la configuration de votre compte Furious change.
+
 Le formulaire vérifie les accès et votre fiche utilisateur en lecture seule.
 Il ne crée aucun temps. Les identifiants sont stockés dans le Trousseau macOS,
 jamais dans un fichier .env. macOS peut demander d’autoriser Node à accéder au

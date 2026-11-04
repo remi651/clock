@@ -10,6 +10,8 @@ import { APP_VERSION } from '../lib/version.js';
 
 const root = dirname(fileURLToPath(import.meta.url));
 const accessCookie = 'clock_personal_access';
+// Personal installation: the owner confirmed a 7-hour Furious day.
+const personalHoursPerDay = 7;
 function equal(a, b) {
   if (typeof a !== 'string' || typeof b !== 'string') return false;
   const first = Buffer.from(a), second = Buffer.from(b);
@@ -22,9 +24,9 @@ function validate(config) {
     || typeof config.password !== 'string' || !config.password || config.password.length > 4096) {
     throw new Error('Renseignez votre adresse du studio et les deux identifiants du compte API Furious.');
   }
-  const hours = config.hoursPerDay === '' || config.hoursPerDay === undefined ? undefined : Number(config.hoursPerDay);
-  if (hours !== undefined && (!Number.isFinite(hours) || hours <= 0 || hours > 24)) throw new Error('L’horaire journalier doit être compris entre 0 et 24 heures.');
-  return { email: config.email.trim().toLowerCase(), username: config.username.trim(), password: config.password, ...(hours === undefined ? {} : { hoursPerDay: hours }) };
+  const hours = config.hoursPerDay === '' || config.hoursPerDay === undefined ? personalHoursPerDay : Number(typeof config.hoursPerDay === 'string' ? config.hoursPerDay.replace(',', '.') : config.hoursPerDay);
+  if (!Number.isFinite(hours) || hours <= 0 || hours > 24) throw new Error('L’horaire journalier doit être compris entre 0 et 24 heures.');
+  return { email: config.email.trim().toLowerCase(), username: config.username.trim(), password: config.password, hoursPerDay: hours };
 }
 const localUser = config => ({ id: `personal:${config.email}`, email: config.email, name: config.email.split('@')[0] });
 
@@ -79,7 +81,7 @@ export async function startPersonalServer({ directory, vault, port = 34157, prov
   router.get('/desktop/settings.css', (_req, res) => res.sendFile(resolve(root, 'settings.css')));
   router.use('/assets', express.static(resolve(root, '../public/assets')));
   router.get('/desktop/config', (_req, res) => res.json({
-    email: config?.email || '', username: config?.username || '', hoursPerDay: config?.hoursPerDay || '',
+    email: config?.email || '', username: config?.username || '', hoursPerDay: config?.hoursPerDay || personalHoursPerDay,
     hasPassword: Boolean(config?.password), configured: Boolean(config), csrf, appVersion: APP_VERSION,
   }));
   router.post('/desktop/config', async (req, res) => {
