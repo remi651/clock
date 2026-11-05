@@ -354,7 +354,7 @@ test('Devis : migration, minuterie, favoris et temps sont isolés du dossier por
     assert.equal(rows.length, 2);
     assert.equal(rows.find(e => e.project_id === proposal.id).furious_project_id, 42);
     assert.equal(rows.find(e => e.project_id === dossier.id).furious_project_id, null);
-    store.setRate(user.id, proposal.id, { id: -1, label: 'Non vendu (hors grille)' });
+    assert.throws(() => store.setRate(user.id, proposal.id, { id: -1, label: 'Non vendu (hors grille)' }), /pas affectés/);
     assert.equal(store.entry(user.id, rows.find(e => e.project_id === dossier.id).id).project_rate_card_id, null);
     assert.equal(store.pins(user.id).length, 2);
     assert.equal(store.pins('autre').length, 0);
@@ -380,4 +380,53 @@ test('HTTP : onglet devis, contrôle des cibles et passage dossier vers devis', 
   const invalid = await fetch(`${base}/api/timer/start`, { method: 'POST', headers, body: JSON.stringify({ projectId: 'proposal:introuvable' }) });
   assert.equal(invalid.status, 400);
   assert.equal(store.timer(user.id).project_id, proposal.id);
+});
+
+test('Avant-vente : migration retire les lignes des devis en attente, préserve les dossiers et les exports historiques', t => {
+  const directory = mkdtempSync(join(tmpdir(), 'clock-presales-'));
+  t.after(() => rmSync(directory, { recursive: true, force: true }));
+  const path = join(directory, 'clock.sqlite'), quote = { id: 'proposal:42', name: 'Devis' };
+  let store = new Store(path);
+  const saved = [];
+  for (const [index, status] of ['pending', 'exported', 'uncertain', 'exporting'].entries()) {
+    store.start(user.id, quote, 'Avant-vente', timestamp + index * 60_000);
+    store.stop(user.id, timestamp + (index + 1) * 60_000);
+    const row = store.entries(user.id, dayAt(timestamp)).find(e => !saved.some(old => old.id === e.id));
+    store.db.prepare('UPDATE entries SET project_rate_card_id=4201,project_rate_card_label=?,status=? WHERE id=?').run('Ancienne affectation', status, row.id);
+    saved.push({ ...row, status });
+  }
+  store.start(user.id, project, '', timestamp + 240_000, { id: 1001, label: 'Dossier' });
+  store.stop(user.id, timestamp + 300_000);
+  store.start(user.id, quote, '', timestamp + 300_000);
+  store.db.prepare("UPDATE timers SET project_rate_card_id=4201,project_rate_card_label='Ancienne affectation'").run();
+  store.db.prepare('INSERT INTO project_rates VALUES (?,?,?,?)').run(user.id, quote.id, 4201, 'Ancienne affectation');
+  store.close();
+  store = new Store(path);
+  try {
+    assert.equal(store.timer(user.id).project_rate_card_id, null);
+    assert.equal(store.timer(user.id).started_at, timestamp + 300_000);
+    assert.equal(store.rates(user.id).length, 0);
+    for (const original of saved) {
+      const current = store.entry(user.id, original.id);
+      assert.equal(current.seconds, 60);
+      assert.equal(current.note, 'Avant-vente');
+      assert.equal(current.project_rate_card_id, original.status === 'pending' ? null : 4201);
+      assert.equal(current.status, original.status === 'exporting' ? 'uncertain' : original.status);
+    }
+    assert.equal(store.entries(user.id, dayAt(timestamp)).find(e => e.project_id === project.id).project_rate_card_id, 1001);
+  } finally { store.close(); }
+});
+
+test('HTTP : une ligne tarifaire ne peut plus être choisie pour un devis', async t => {
+  const { base, store, headers } = await fixture(t, { demo: true });
+  const quote = (await (await fetch(`${base}/api/projects?kind=proposal`, { headers })).json()).projects[0];
+  const chosen = await fetch(`${base}/api/projects/${encodeURIComponent(quote.id)}/rate-card`, { method: 'PUT', headers, body: JSON.stringify({ projectRateCardId: -1 }) });
+  assert.equal(chosen.status, 400);
+  store.start(user.id, quote, '', Date.now() - 2000, { id: 1001, label: 'Ignorée' });
+  assert.equal(store.timer(user.id).project_rate_card_id, null);
+  store.stop(user.id);
+  const row = store.entries(user.id, dayAt())[0];
+  const patched = await fetch(`${base}/api/entries/${row.id}`, { method: 'PATCH', headers, body: JSON.stringify({ seconds: 60, note: '', projectRateCardId: -1 }) });
+  assert.equal(patched.status, 400);
+  assert.equal(store.entry(user.id, row.id).project_rate_card_id, null);
 });

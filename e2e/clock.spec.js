@@ -153,6 +153,7 @@ test('Dossiers et devis : onglets, favoris séparés, changement de minuterie et
   await page.getByRole('tab', { name: 'Devis', exact: true }).click();
   await expect(page.getByRole('tab', { name: 'Devis', exact: true })).toHaveAttribute('aria-selected', 'true');
   await expect(page.locator('.project')).toHaveCount(1);
+  await expect(page.locator('.project').getByRole('combobox')).toHaveCount(0);
   await expect(page.getByRole('heading', { name: 'Devis perdu', exact: true })).toHaveCount(0);
   await expect(page.locator('.timer-title')).toHaveText('Identité du studio');
   await page.getByRole('button', { name: 'Épingler Étude du futur site', exact: true }).click();

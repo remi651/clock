@@ -31,7 +31,7 @@ const provider = createFurious({ username: 'e2e-test-account', password: 'fake-p
     body = { success: true, data: { Sprint: remoteEntries.filter(row => row.description.includes(marker)) } };
   } else if (options.method === 'POST' && url.pathname.endsWith('/sprint/')) {
     const data = options.data.data;
-    if (data.proposal_id ? data.proposal_id !== 42 || data.project_id !== 0 : data.project_rate_card_id !== data.project_id * 100 + 1 && data.project_rate_card_id !== -1) return { data: { success: false, message: { project_rate_card_id: 'required' } } };
+    if (data.proposal_id ? data.proposal_id !== 42 || data.project_id !== 0 || Object.hasOwn(data, 'project_rate_card_id') : data.project_rate_card_id !== data.project_id * 100 + 1 && data.project_rate_card_id !== -1) return { data: { success: false, message: { project_rate_card_id: 'required' } } };
     const row = { ...data, id: 100 + remoteEntries.length, time_in_hours: String(data.num_days * 7) };
     remoteEntries.push(row);
     if (!interrupted.has(data.assigned_people)) {

@@ -73,9 +73,11 @@ dossier du même numéro. La minuterie conserve aussi le dossier associé au mom
 du démarrage dans `furious_project_id` ; la migration préserve les temps existants.
 À l’export, le devis est relu et un changement d’association bloque la création.
 Le corps Sprint transmet `proposal_id` et le `project_id` associé, ou `0` pour
-un devis sans dossier. Aucune ligne de grille tarifaire devis n’est envoyée comme
-ligne de grille tarifaire projet. Seules les prestations d’un dossier associé
-peuvent être proposées ; `-1` reste un choix explicite non vendu.
+un devis sans dossier. Les temps d’avant-vente sur devis sont toujours exportés
+sans `project_rate_card_id`, même si le devis est lié à un dossier. Aucune grille
+n’est proposée dans l’onglet Devis. Les anciennes affectations des temps sur devis
+encore à exporter sont retirées localement ; les temps exportés ou à vérifier
+conservent leurs données historiques pour permettre la réconciliation.
 
 La réconciliation vérifie le devis exact en plus de la personne, des dates, du
 dossier et de la durée. La lecture des devis a été vérifiée sur l’instance réelle.

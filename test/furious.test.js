@@ -347,7 +347,7 @@ test('Devis : identifiants distincts des dossiers, statuts ouverts et respect du
   assert.equal(quotes[0].projectId, null);
   assert.equal(quotes[1].projectId, '42');
   assert.deepEqual(await provider.rateCards(user, 'proposal:42'), []);
-  assert.deepEqual(await provider.rateCards(user, 'proposal:43'), [{ id: 4201, label: 'Direction artistique' }]);
+  assert.deepEqual(await provider.rateCards(user, 'proposal:43'), []);
   await assert.rejects(() => provider.rateCards(user, 'proposal:47'), /accessible/);
 });
 
@@ -377,13 +377,14 @@ test('Devis : export sans dossier, conversion de sept heures et conservation de 
   assert.equal(data.project_rate_card_id, undefined);
 });
 
-test('Devis : prestation du dossier associé validée, devis fermé ou changé refusé sans création', async () => {
+test('Devis : aucune ligne tarifaire même avec dossier associé, devis fermé ou changé refusé sans création', async () => {
   const valid = proposalFixture([{ ...remoteProposal, project_id: 42 }]);
   await valid.provider.exportEntry(user, quoteEntry({ furious_project_id: 42, project_rate_card_id: 4201 }), await valid.provider.prepareExport(user, day));
   const data = valid.calls.find(c => c.method === 'POST' && c.url.endsWith('/sprint/')).data.data;
   assert.equal(data.project_id, 42);
   assert.equal(data.proposal_id, 42);
-  assert.equal(data.project_rate_card_id, 4201);
+  assert.equal(data.project_rate_card_id, undefined);
+  assert.equal(valid.calls.some(c => c.url.includes('/project-rate-card/')), false);
   for (const rows of [[{ ...remoteProposal, statut: 'Perdu' }], [{ ...remoteProposal, project_id: 42 }]]) {
     const rejected = proposalFixture(rows);
     const context = await rejected.provider.prepareExport(user, day);

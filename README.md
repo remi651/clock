@@ -277,7 +277,8 @@ cloud ne constituent pas un déploiement.
 La liste comporte les onglets **Dossiers** et **Devis**. Chaque onglet possède
 sa recherche ; les dossiers et devis peuvent être épinglés indépendamment.
 Démarrer un décompte sur une autre cible termine le précédent. Les temps de
-devis sont identifiés dans le récapitulatif et exportés avec leur `proposal_id`.
+devis sont identifiés dans le récapitulatif et exportés avec leur `proposal_id`,
+sans ligne tarifaire. Le sélecteur de prestation est réservé aux dossiers.
 Les devis gagnés et perdus sont exclus de la liste des devis ouverts.
 Le compte API doit autoriser la consultation des Devis ; un refus ne bloque pas
 les dossiers. Le contrat et les limites de validation figurent dans

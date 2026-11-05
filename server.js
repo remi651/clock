@@ -158,6 +158,7 @@ export function createApp({ demo = false, store, provider, appUrl = 'http://loca
     catch (error) { res.status(503).json({ error: error.message }); }
   });
   async function selectedRate(user, projectId, id) {
+    if (targetKind(projectId) === 'proposal' && id != null) throw new Error('Les temps sur devis ne sont pas affectés à une ligne tarifaire.');
     if (id == null) return null;
     if (id === -1) return { id: -1, label: 'Non vendu (hors grille)' };
     if (!Number.isSafeInteger(id) || id <= 0 || !provider.rateCards) throw new Error('Prestation Furious invalide.');
@@ -183,7 +184,7 @@ export function createApp({ demo = false, store, provider, appUrl = 'http://loca
     if (!project) return res.status(400).json({ error: 'Ce projet n’est pas ouvert ou ne vous est pas accessible.' });
     try {
       const saved = store.rates(req.session.user.id).find(r => r.project_id === projectId);
-      const rate = await selectedRate(req.session.user, projectId, saved?.id);
+      const rate = targetKind(projectId) === 'proposal' ? null : await selectedRate(req.session.user, projectId, saved?.id);
       res.json({ timer: store.start(req.session.user.id, project, note.trim(), Date.now(), rate) });
     }
     catch (error) { res.status(409).json({ error: error.message }); }
@@ -203,6 +204,7 @@ export function createApp({ demo = false, store, provider, appUrl = 'http://loca
         const id = req.body.projectRateCardId;
         const entry = store.entry(req.session.user.id, req.params.id);
         if (!entry || entry.status !== 'pending') return res.status(409).json({ error: 'Cette saisie est introuvable ou son export est déjà engagé.' });
+        if (targetKind(entry.project_id) === 'proposal' && id !== null) return res.status(400).json({ error: 'Les temps sur devis ne sont pas affectés à une ligne tarifaire.' });
         if (id === null) rateCard = null;
         else if (id === -1) rateCard = { id: -1, label: 'Non vendu (hors grille)' };
         else if (Number.isSafeInteger(id) && id > 0 && provider.rateCards) {
