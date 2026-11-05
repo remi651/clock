@@ -333,3 +333,51 @@ test('HTTP : sélection dans le projet, persistance et refus d’une prestation 
   assert.equal(result.projectRates.find(r => r.project_id === id).id, 1001);
   assert.equal((await fetch(`${base}/api/projects/inaccessible/rate-card`, { method: 'PUT', headers, body: JSON.stringify({ projectRateCardId: -1 }) })).status, 400);
 });
+
+test('Devis : migration, minuterie, favoris et temps sont isolés du dossier portant le même numéro', t => {
+  const directory = mkdtempSync(join(tmpdir(), 'clock-proposal-'));
+  t.after(() => rmSync(directory, { recursive: true, force: true }));
+  const path = join(directory, 'clock.sqlite');
+  let store = new Store(path);
+  const dossier = { id: '42', name: 'Dossier' }, proposal = { id: 'proposal:42', name: 'Devis', projectId: '42' };
+  store.setPinned(user.id, dossier.id, true);
+  store.setPinned(user.id, proposal.id, true);
+  store.start(user.id, dossier, '', timestamp);
+  store.start(user.id, proposal, '', timestamp + 60_000);
+  store.close();
+  store = new Store(path);
+  try {
+    assert.equal(store.timer(user.id).project_id, proposal.id);
+    assert.equal(store.timer(user.id).furious_project_id, 42);
+    store.stop(user.id, timestamp + 120_000);
+    const rows = store.entries(user.id, dayAt(timestamp));
+    assert.equal(rows.length, 2);
+    assert.equal(rows.find(e => e.project_id === proposal.id).furious_project_id, 42);
+    assert.equal(rows.find(e => e.project_id === dossier.id).furious_project_id, null);
+    store.setRate(user.id, proposal.id, { id: -1, label: 'Non vendu (hors grille)' });
+    assert.equal(store.entry(user.id, rows.find(e => e.project_id === dossier.id).id).project_rate_card_id, null);
+    assert.equal(store.pins(user.id).length, 2);
+    assert.equal(store.pins('autre').length, 0);
+    store.setPinned(user.id, dossier.id, false);
+    assert.deepEqual(store.pins(user.id), [proposal.id]);
+  } finally { store.close(); }
+});
+
+test('HTTP : onglet devis, contrôle des cibles et passage dossier vers devis', async t => {
+  const { base, store, headers } = await fixture(t, { demo: true });
+  const result = await (await fetch(`${base}/api/projects?kind=proposal`, { headers })).json();
+  const proposal = result.projects[0];
+  assert.equal(proposal.kind, 'proposal');
+  const project = (await (await fetch(`${base}/api/projects`, { headers })).json()).projects[0];
+  store.start(user.id, project, '', Date.now() - 2000);
+  const start = await fetch(`${base}/api/timer/start`, { method: 'POST', headers, body: JSON.stringify({ projectId: proposal.id }) });
+  assert.equal(start.status, 200);
+  assert.equal(store.timer(user.id).project_id, proposal.id);
+  assert.equal(store.entries(user.id, dayAt())[0].project_id, project.id);
+  const pin = await fetch(`${base}/api/pins/${encodeURIComponent(proposal.id)}`, { method: 'PUT', headers, body: JSON.stringify({ pinned: true }) });
+  assert.equal(pin.status, 200);
+  assert.deepEqual(store.pins(user.id), [proposal.id]);
+  const invalid = await fetch(`${base}/api/timer/start`, { method: 'POST', headers, body: JSON.stringify({ projectId: 'proposal:introuvable' }) });
+  assert.equal(invalid.status, 400);
+  assert.equal(store.timer(user.id).project_id, proposal.id);
+});

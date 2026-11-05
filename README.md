@@ -131,7 +131,7 @@ La version fournie en PDF a été lue ; les détails du contrat utilisé sont da
 [docs/furious-api.md](docs/furious-api.md).
 
 Dans l’administration Furious, prévoir un **compte API dédié** avec les droits
-de lecture Utilisateurs, Projets, Historique des heures quotidiennes et Temps,
+de lecture Utilisateurs, Projets, Devis, Historique des heures quotidiennes et Temps,
 ainsi que le droit de création des Temps. Ne pas utiliser le mot de passe Google
 des collaborateurs. Renseigner, côté serveur uniquement :
 
@@ -271,3 +271,14 @@ compte du studio et le refus d’un compte externe, tester un export autorisé s
 un projet dédié et confirmer sa présence dans Furious, configurer le domaine
 HTTPS et les sauvegardes. La création du code et la sauvegarde de la configuration
 cloud ne constituent pas un déploiement.
+
+## Dossiers et devis
+
+La liste comporte les onglets **Dossiers** et **Devis**. Chaque onglet possède
+sa recherche ; les dossiers et devis peuvent être épinglés indépendamment.
+Démarrer un décompte sur une autre cible termine le précédent. Les temps de
+devis sont identifiés dans le récapitulatif et exportés avec leur `proposal_id`.
+Les devis gagnés et perdus sont exclus de la liste des devis ouverts.
+Le compte API doit autoriser la consultation des Devis ; un refus ne bloque pas
+les dossiers. Le contrat et les limites de validation figurent dans
+[docs/furious-api.md](docs/furious-api.md).

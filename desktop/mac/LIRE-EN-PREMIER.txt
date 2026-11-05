@@ -77,3 +77,11 @@ L’interface et le serveur personnel sont testés sous Linux avec un Trousseau
 simulé. L’installateur, AppleScript, la signature locale et l’accès réel au
 Trousseau doivent encore être vérifiés sur votre Mac. Cette application est
 créée localement et n’est pas notariée par Apple ; aucun abonnement n’est requis.
+
+DOSSIERS ET DEVIS
+
+Utilisez les deux onglets pour retrouver vos dossiers ouverts et vos devis en
+cours. Chaque onglet dispose de sa recherche et permet d’épingler vos favoris.
+Le bouton lecture démarre le décompte et termine automatiquement le précédent.
+L’export de la journée comprend les deux types de temps. Le compte API Furious
+doit autoriser la consultation des Devis pour afficher cet onglet.

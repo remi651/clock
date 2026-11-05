@@ -55,6 +55,34 @@ document présente également les tableaux dans le contrat de création.
 Un projet restreint est montré uniquement si le pseudo du collaborateur y figure.
 Les droits du compte API limitent aussi les résultats accessibles.
 
+## Devis — pages 44 à 46
+
+`GET /api/v2/proposal/`, modèle `Proposal`, champs
+`id,title,company_name,statut,project_id`. La pagination est parcourue intégralement.
+L’onglet Devis est chargé séparément : un refus de consultation des devis ne
+bloque pas l’onglet Dossiers. Le compte API doit autoriser la lecture des Devis.
+
+Sur l’instance Studio Katra, les statuts ouverts observés sont `En cours`,
+`Pipe incertain`, `Pipe potentiel` et `Pipe sûr`. Les statuts gagnés, perdus,
+refusés, annulés et archivés sont exclus. Un devis lié à un dossier est proposé
+uniquement si ce dossier est ouvert et accessible à la personne. Les autres
+résultats sont limités par les droits de lecture du compte API.
+
+Les cibles locales utilisent `proposal:<id>` pour éviter une collision avec un
+dossier du même numéro. La minuterie conserve aussi le dossier associé au moment
+du démarrage dans `furious_project_id` ; la migration préserve les temps existants.
+À l’export, le devis est relu et un changement d’association bloque la création.
+Le corps Sprint transmet `proposal_id` et le `project_id` associé, ou `0` pour
+un devis sans dossier. Aucune ligne de grille tarifaire devis n’est envoyée comme
+ligne de grille tarifaire projet. Seules les prestations d’un dossier associé
+peuvent être proposées ; `-1` reste un choix explicite non vendu.
+
+La réconciliation vérifie le devis exact en plus de la personne, des dates, du
+dossier et de la durée. La lecture des devis a été vérifiée sur l’instance réelle.
+La création d’un temps sur devis sans dossier (`project_id:0`) est testée avec
+une API simulée ; aucun temps réel de test n’a été créé. La première saisie réelle
+reste à confirmer sur cette instance.
+
 ## Horaire journalier — page 158
 
 `GET /api/v2/user-daily-hours-history/`, modèle `UserDailyHoursHistory`.

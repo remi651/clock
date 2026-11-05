@@ -124,8 +124,14 @@ export function createApp({ demo = false, store, provider, appUrl = 'http://loca
     res.clearCookie(cookieName, options);
     res.json({ ok: true });
   });
+  async function targets(user, kind) {
+    if (kind !== 'proposal') return provider.projects(user);
+    if (!provider.proposals) throw new Error('La liste des devis Furious n’est pas disponible.');
+    return provider.proposals(user);
+  }
+  const targetKind = id => String(id).startsWith('proposal:') ? 'proposal' : 'project';
   app.get('/api/projects', async (req, res) => {
-    try { res.json({ projects: await provider.projects(req.session.user), pinnedProjectIds: store.pins(req.session.user.id), projectRates: store.rates(req.session.user.id) }); }
+    try { res.json({ projects: await targets(req.session.user, req.query.kind), pinnedProjectIds: store.pins(req.session.user.id), projectRates: store.rates(req.session.user.id) }); }
     catch (error) { res.status(503).json({ error: error.message }); }
   });
   app.put('/api/pins/:projectId', async (req, res) => {
@@ -134,7 +140,7 @@ export function createApp({ demo = false, store, provider, appUrl = 'http://loca
     if (typeof pinned !== 'boolean' || !projectId || projectId.length > 100) return res.status(400).json({ error: 'Projet ou choix d’épinglage invalide.' });
     if (pinned) {
       try {
-        const projects = await provider.projects(req.session.user);
+        const projects = await targets(req.session.user, targetKind(projectId));
         if (!projects.some(p => p.id === projectId)) return res.status(400).json({ error: 'Ce projet n’est pas ouvert ou ne vous est pas accessible.' });
       } catch (error) { return res.status(503).json({ error: error.message }); }
     }
@@ -162,7 +168,7 @@ export function createApp({ demo = false, store, provider, appUrl = 'http://loca
   app.put('/api/projects/:projectId/rate-card', async (req, res) => {
     try {
       const projectId = req.params.projectId;
-      if (!(await provider.projects(req.session.user)).some(p => p.id === projectId)) return res.status(400).json({ error: 'Projet inaccessible.' });
+      if (!(await targets(req.session.user, targetKind(projectId))).some(p => p.id === projectId)) return res.status(400).json({ error: 'Projet inaccessible.' });
       const rate = await selectedRate(req.session.user, projectId, req.body?.projectRateCardId);
       store.setRate(req.session.user.id, projectId, rate);
       res.json({ ok: true });
@@ -172,7 +178,7 @@ export function createApp({ demo = false, store, provider, appUrl = 'http://loca
     const { projectId, note = '' } = req.body || {};
     if (typeof projectId !== 'string' || typeof note !== 'string' || note.length > 500) return res.status(400).json({ error: 'Projet ou description invalide.' });
     let project;
-    try { project = (await provider.projects(req.session.user)).find(p => p.id === projectId); }
+    try { project = (await targets(req.session.user, targetKind(projectId))).find(p => p.id === projectId); }
     catch (error) { return res.status(503).json({ error: error.message }); }
     if (!project) return res.status(400).json({ error: 'Ce projet n’est pas ouvert ou ne vous est pas accessible.' });
     try {

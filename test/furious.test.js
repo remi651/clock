@@ -326,3 +326,87 @@ test('Transport HTTP : en-têtes, corps JSON et paramètres passent réellement 
   assert.equal(requests[1].headers['f-auth-token'], 'fake-test-token');
   assert.ok(new URL(requests[1].path, base).searchParams.get('query').includes('User('));
 });
+
+const remoteProposal = { id: 42, title: 'Étude identité', company_name: 'Katra', statut: 'Pipe sûr', project_id: 0 };
+function proposalFixture(rows = [remoteProposal], overrides = {}) {
+  return apiFixture({ proposal: async () => ({ success: true, data: { Proposal: rows } }), ...overrides });
+}
+function quoteEntry(changes = {}) { return { ...entry, project_id: 'proposal:42', furious_project_id: null, project_name: remoteProposal.title, ...changes }; }
+
+test('Devis : identifiants distincts des dossiers, statuts ouverts et respect du dossier associé', async () => {
+  const { provider } = proposalFixture([
+    remoteProposal,
+    { ...remoteProposal, id: 43, statut: 'En cours', project_id: 42 },
+    { ...remoteProposal, id: 44, statut: 'Gagnés en cours', project_id: 42 },
+    { ...remoteProposal, id: 45, statut: 'Gagnés', project_id: 42 },
+    { ...remoteProposal, id: 46, statut: 'Perdu' },
+    { ...remoteProposal, id: 47, project_id: 99 },
+  ]);
+  const quotes = await provider.proposals(user);
+  assert.deepEqual(quotes.map(p => p.id), ['proposal:42', 'proposal:43']);
+  assert.equal(quotes[0].projectId, null);
+  assert.equal(quotes[1].projectId, '42');
+  assert.deepEqual(await provider.rateCards(user, 'proposal:42'), []);
+  assert.deepEqual(await provider.rateCards(user, 'proposal:43'), [{ id: 4201, label: 'Direction artistique' }]);
+  await assert.rejects(() => provider.rateCards(user, 'proposal:47'), /accessible/);
+});
+
+test('Devis : pagination complète, doublons et résultats tronqués refusés', async () => {
+  const { provider } = apiFixture({ proposal: async (_options, query) => {
+    const offset = Number(query.match(/offset:(\d+)/)[1]);
+    const rows = Array.from({ length: offset ? 1 : 250 }, (_, i) => ({ ...remoteProposal, id: offset + i + 1 }));
+    return { success: true, data: { Proposal: rows }, meta: { totalElementsWithFilters: 251 } };
+  } });
+  assert.equal((await provider.proposals(user)).length, 251);
+  const repeated = proposalFixture([remoteProposal, remoteProposal]);
+  await assert.rejects(() => repeated.provider.proposals(user), /répété/);
+  const truncated = apiFixture({ proposal: async () => ({ success: true, data: { Proposal: [] }, meta: { totalElementsWithFilters: 1 } }) });
+  await assert.rejects(() => truncated.provider.proposals(user), /incomplète/);
+});
+
+test('Devis : export sans dossier, conversion de sept heures et conservation de proposal_id', async () => {
+  const { provider, calls, writes } = proposalFixture();
+  const local = quoteEntry({ seconds: 7 * 3600 });
+  const context = await provider.prepareExport(user, day);
+  await provider.exportEntry(user, local, context);
+  const data = calls.find(c => c.method === 'POST' && c.url.endsWith('/sprint/')).data.data;
+  assert.equal(data.project_id, 0);
+  assert.equal(data.proposal_id, 42);
+  assert.equal(data.num_days, 1);
+  assert.equal(writes(), 1);
+  assert.equal(data.project_rate_card_id, undefined);
+});
+
+test('Devis : prestation du dossier associé validée, devis fermé ou changé refusé sans création', async () => {
+  const valid = proposalFixture([{ ...remoteProposal, project_id: 42 }]);
+  await valid.provider.exportEntry(user, quoteEntry({ furious_project_id: 42, project_rate_card_id: 4201 }), await valid.provider.prepareExport(user, day));
+  const data = valid.calls.find(c => c.method === 'POST' && c.url.endsWith('/sprint/')).data.data;
+  assert.equal(data.project_id, 42);
+  assert.equal(data.proposal_id, 42);
+  assert.equal(data.project_rate_card_id, 4201);
+  for (const rows of [[{ ...remoteProposal, statut: 'Perdu' }], [{ ...remoteProposal, project_id: 42 }]]) {
+    const rejected = proposalFixture(rows);
+    const context = await rejected.provider.prepareExport(user, day);
+    await assert.rejects(() => rejected.provider.exportEntry(user, quoteEntry(), context), /fermé|changé/);
+    assert.equal(rejected.writes(), 0);
+  }
+});
+
+test('Devis : réconciliation contrôle le devis exact et empêche toute deuxième création', async () => {
+  for (const proposalId of [42, 43]) {
+    const local = quoteEntry();
+    const { provider, writes } = proposalFixture([remoteProposal], { sprint: async () => ({ success: true, data: { Sprint: [remoteEntry(local, { project_id: 0, proposal_id: proposalId })] } }) });
+    if (proposalId === 42) assert.deepEqual(await provider.reconcileEntry(user, local), { id: '9001' });
+    else await assert.rejects(() => provider.reconcileEntry(user, local), /diffère/);
+    const context = await provider.prepareExport(user, day);
+    if (proposalId === 42) await provider.exportEntry(user, local, context);
+    else await assert.rejects(() => provider.exportEntry(user, local, context), /diffère/);
+    assert.equal(writes(), 0);
+  }
+});
+
+test('Devis : un refus de lecture reste explicite et ne bloque pas les dossiers', async () => {
+  const { provider } = proposalFixture([], { proposal: async () => ({ success: false, message: 'secret fake-test-password' }) });
+  await assert.rejects(() => provider.proposals(user), error => /lecture des devis/.test(error.message) && !/fake-test-password/.test(error.message));
+  assert.equal((await provider.projects(user)).length, 1);
+});

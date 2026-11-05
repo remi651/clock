@@ -5,6 +5,8 @@ let session, projects = [], dayData = { entries: [], timer: null }, selectedDay,
 let editingId, toastTimeout, busy = false, serverOffset = 0;
 let pinnedProjectIds = [], projectFilter = '', pinBusy = false;
 let projectRates = [];
+let projectKind = 'project', catalogLoading = false;
+const projectFilters = { project: '', proposal: '' };
 const rateChoices = new Map();
 const icon = (name, cls = '') => {
   const paths = {
@@ -84,7 +86,7 @@ function renderLogin() {
 
 async function loadData() {
   const [projectResult, dayResult] = await Promise.allSettled([
-    api('/api/projects'), api(`/api/day?day=${encodeURIComponent(selectedDay)}`),
+    api(`/api/projects?kind=${projectKind}`), api(`/api/day?day=${encodeURIComponent(selectedDay)}`),
   ]);
   if (projectResult.status === 'fulfilled') { projects = projectResult.value.projects; projectRates = projectResult.value.projectRates || []; pinnedProjectIds = projectResult.value.pinnedProjectIds || []; projectError = ''; }
   else { projects = []; projectError = projectResult.reason.message; }
@@ -103,7 +105,7 @@ function renderDashboard() {
   const uncertain = dayData.entries.filter(e => ['uncertain', 'exporting'].includes(e.status)).length;
   app.innerHTML = `
     <aside class="sidebar">${brand()}<div class="studio">STUDIO KATRA</div>
-      <nav aria-label="Navigation principale"><a class="nav-item active" href="#today" aria-label="Chronomètre" title="Chronomètre">${icon('clock')}</a><a class="nav-item" href="#projects">${icon('grid')}Projets ouverts <small>${projects.length}</small></a></nav>
+      <nav aria-label="Navigation principale"><a class="nav-item active" href="#today" aria-label="Chronomètre" title="Chronomètre">${icon('clock')}</a><a class="nav-item" href="#projects">${icon('grid')}Dossiers et devis</a></nav>
       <div class="sidebar-bottom"><div class="connection"><span class="dot ${session.furiousConfigured && !projectError ? 'ready' : ''}"></span>${session.demo ? 'Furious · démonstration' : session.furiousConfigured ? projectError ? 'Furious indisponible' : 'Furious connecté' : 'Furious à connecter'}</div><div class="profile"><span class="avatar">${escape(initials)}</span><div><div class="profile-name">${escape(user.name)}</div><div class="profile-email">${escape(user.email)}</div></div><button class="logout" id="${session.authMode === 'personal' ? 'settings' : 'logout'}" aria-label="${session.authMode === 'personal' ? 'Réglages' : 'Se déconnecter'}" title="${session.authMode === 'personal' ? 'Réglages' : 'Se déconnecter'}">${icon(session.authMode === 'personal' ? 'settings' : 'logout')}</button></div></div>
     </aside>
     <main class="main" id="today">
@@ -111,8 +113,8 @@ function renderDashboard() {
       <div class="page-heading"><div><h1>Votre journée, en clair.</h1></div><label class="date-control">${icon('calendar')}<input type="date" id="day-select" value="${selectedDay}" max="${dayAt(now())}" aria-label="Journée à consulter"></label></div>
       ${session.demo ? '<div class="demo-banner"><strong>Mode démonstration</strong> · Projets fictifs et temps de test, enregistrés uniquement sur cette machine. Aucun export vers Furious.</div>' : !session.furiousConfigured ? '<div class="config-banner">Furious reste à connecter. Les projets réels et l’export seront disponibles une fois l’intégration configurée.</div>' : ''}
       <section class="timer-box" aria-label="Minuterie en cours"><div class="timer-icon">${icon('clock')}</div><div class="timer-info"><div class="timer-title">${dayData.timer ? escape(dayData.timer.project_name) : ''}</div><div class="timer-subtitle">${dayData.timer ? escape(dayData.timer.note || '') : ''}</div></div><div class="timer-time" id="running-time">00:00:00</div>${dayData.timer ? `<button class="button stop" id="stop-timer" aria-label="Terminer" title="Terminer">${icon('stop')}</button>` : ''}</section>
-      <section id="projects"><div class="section-top"><div class="section-title"><h2>Projets ouverts</h2><span class="count">${projects.length}</span></div><label class="search">${icon('search')}<input id="project-search" type="search" placeholder="Rechercher un projet…" aria-label="Rechercher un projet"></label></div><p class="pin-help">${icon('pin')}Épinglez vos projets habituels pour les retrouver en premier.</p>
-        ${projectError ? `<p class="error" role="alert">${escape(projectError)}</p>` : ''}<div class="project-grid" id="project-grid"></div>
+      <section id="projects"><div class="section-top"><div class="section-title"><h2>${projectKind === 'proposal' ? 'Devis' : 'Dossiers'}</h2><span class="count">${projects.length}</span></div><label class="search">${icon('search')}<input id="project-search" type="search" placeholder="${projectKind === 'proposal' ? 'Rechercher un devis…' : 'Rechercher un dossier…'}" aria-label="${projectKind === 'proposal' ? 'Rechercher un devis' : 'Rechercher un dossier'}"></label></div><div class="project-tabs" role="tablist" aria-label="Dossiers et devis"><button type="button" role="tab" id="tab-project" data-kind="project" aria-controls="project-grid" aria-selected="${projectKind === 'project'}" tabindex="${projectKind === 'project' ? '0' : '-1'}">Dossiers</button><button type="button" role="tab" id="tab-proposal" data-kind="proposal" aria-controls="project-grid" aria-selected="${projectKind === 'proposal'}" tabindex="${projectKind === 'proposal' ? '0' : '-1'}">Devis</button></div><p class="pin-help">${icon('pin')}Épinglez vos dossiers et devis habituels pour les retrouver en premier.</p>
+        ${projectError ? `<p class="error" role="alert">${escape(projectError)}</p>` : ''}<div class="project-grid" id="project-grid" role="tabpanel" aria-labelledby="tab-${projectKind}"></div>
       </section>
       <section aria-labelledby="entries-title"><div class="section-top"><div class="section-title"><h2 id="entries-title">${selectedDay === dayAt(now()) ? 'Les temps du jour' : 'Les temps de la journée'}</h2><span class="count">${dayData.entries.length}</span></div><span class="subtitle">${escape(date)}</span></div>
         ${uncertain ? '<p class="error" role="alert">Un export doit être vérifié. Utilisez la loupe de la saisie pour rechercher sa confirmation dans Furious, sans renvoyer le temps.</p>' : ''}
@@ -143,7 +145,7 @@ function renderProjects(filter = '') {
     if (rate?.id != null && rate.id !== -1 && !options.some(r => r.id === rate.id)) options.push(rate);
     const picker = `<select data-rate="${escape(project.id)}" aria-label="Prestation Furious — ${escape(project.name)}" ${running ? 'disabled' : ''}><option value="">Choisir une prestation</option><option value="-1" ${rate?.id === -1 ? 'selected' : ''}>Non vendu (hors grille)</option>${options.map(r => `<option value="${r.id}" ${rate?.id === r.id ? 'selected' : ''}>${escape(r.label)}</option>`).join('')}</select>`;
     return `<article class="project ${running ? 'running' : ''} ${pinned ? 'pinned' : ''}"><div class="project-top"><span class="client">${escape(project.client || 'Studio Katra')}</span><button class="pin-button ${pinned ? 'is-pinned' : ''}" data-pin="${escape(project.id)}" aria-pressed="${pinned}" aria-label="${pinned ? 'Désépingler' : 'Épingler'} ${escape(project.name)}" title="${pinned ? 'Désépingler ce projet' : 'Épingler ce projet'}" ${pinBusy ? 'disabled' : ''}>${icon('pin')}</button></div><h3>${escape(project.name)}</h3><div class="project-footer">${picker}<button class="start-project ${running ? 'running' : ''}" data-start="${escape(project.id)}" aria-label="${running ? 'En cours' : 'Démarrer'}" title="${running ? 'En cours' : 'Démarrer'} ${escape(project.name)}" ${running ? 'disabled' : ''}>${icon(running ? 'clock' : 'play')}</button></div></article>`;
-  }).join('') || `<div class="empty">${projectError ? 'Connexion Furious nécessaire pour afficher vos projets.' : filter ? 'Aucun projet ne correspond à votre recherche.' : 'Aucun projet ouvert pour le moment.'}</div>`;
+  }).join('') || `<div class="empty">${projectError ? 'Connexion Furious nécessaire pour afficher vos projets.' : filter ? projectKind === 'proposal' ? 'Aucun devis ne correspond à votre recherche.' : 'Aucun dossier ne correspond à votre recherche.' : projectKind === 'proposal' ? 'Aucun devis ouvert pour le moment.' : 'Aucun dossier ouvert pour le moment.'}</div>`;
   container.querySelectorAll('[data-rate]').forEach(select => {
     let loading = false;
     const load = async () => {
@@ -174,7 +176,7 @@ function renderProjects(filter = '') {
     act(() => api('/api/timer/start', { method: 'POST', body: JSON.stringify({ projectId }) }), 'Minuterie démarrée. Bonne création !');
   }));
   container.querySelectorAll('[data-pin]').forEach(button => button.addEventListener('click', async () => {
-    if (pinBusy || busy) return;
+    if (pinBusy || busy || catalogLoading) return;
     const projectId = button.dataset.pin;
     const pinned = !pinnedProjectIds.includes(projectId);
     pinBusy = true;
@@ -194,7 +196,7 @@ function renderEntries() {
     let action = '';
     if (entry.status === 'pending') action = `<button class="icon-button" data-edit="${escape(entry.id)}" aria-label="Modifier la saisie ${escape(entry.project_name)}" title="Modifier">${icon('edit')}</button>`;
     if (entry.status === 'uncertain') action = `<button class="icon-button" data-reconcile="${escape(entry.id)}" aria-label="Vérifier dans Furious : ${escape(entry.project_name)}" title="Vérifier dans Furious" ${!session.furiousConfigured ? 'disabled' : ''}>${icon('search')}</button>`;
-    return `<tr><td><div class="entry-project">${escape(entry.project_name)}</div><div class="entry-note">${escape(entry.note || 'Sans description')}</div>${entry.project_rate_card_label ? `<div class="entry-rate-card">${escape(entry.project_rate_card_label)}</div>` : ''}</td><td class="duration">${duration(entry.seconds)}</td><td><span class="pill ${escape(entry.status)}">${labels[entry.status] || 'À vérifier'}</span></td><td>${action}</td></tr>`;
+    return `<tr><td><div class="entry-project">${escape(entry.project_name)}${entry.project_id.startsWith('proposal:') ? '<span class="entry-kind">Devis</span>' : ''}</div><div class="entry-note">${escape(entry.note || 'Sans description')}</div>${entry.project_rate_card_label ? `<div class="entry-rate-card">${escape(entry.project_rate_card_label)}</div>` : ''}</td><td class="duration">${duration(entry.seconds)}</td><td><span class="pill ${escape(entry.status)}">${labels[entry.status] || 'À vérifier'}</span></td><td>${action}</td></tr>`;
   }).join('') || `<tr><td colspan="4"><div class="empty">${icon('clock')}</div></td></tr>`;
 }
 
@@ -208,9 +210,9 @@ function tick() {
 }
 
 async function act(action, success) {
-  if (busy) return;
+  if (busy || catalogLoading) return;
   busy = true;
-  document.querySelectorAll('[data-start],[data-pin],[data-rate],[data-reconcile],#stop-timer,#export-day').forEach(b => { b.disabled = true; });
+  document.querySelectorAll('[data-kind],[data-start],[data-pin],[data-rate],[data-reconcile],#stop-timer,#export-day').forEach(b => { b.disabled = true; });
   try {
     const result = await action();
     if (result.message) toast(result.message, Boolean(result.uncertain || result.failed));
@@ -234,7 +236,26 @@ function bindDashboard() {
     selectedDay = event.target.value;
     try { await loadData(); } catch (error) { toast(error.message, true); }
   });
-  document.querySelector('#project-search').addEventListener('input', event => { projectFilter = event.target.value; renderProjects(projectFilter); });
+  document.querySelector('#project-search').addEventListener('input', event => { projectFilter = event.target.value; projectFilters[projectKind] = projectFilter; renderProjects(projectFilter); });
+  document.querySelectorAll('[data-kind]').forEach(tab => {
+    tab.addEventListener('click', async () => {
+      if (busy || catalogLoading || projectKind === tab.dataset.kind) return;
+      projectKind = tab.dataset.kind;
+      projectFilter = projectFilters[projectKind];
+      catalogLoading = true;
+      document.querySelectorAll('[data-kind],[data-start],[data-pin],[data-rate],#project-search').forEach(b => { b.disabled = true; });
+      try { await loadData(); }
+      catch (error) { toast(error.message, true); }
+      finally { catalogLoading = false; }
+      document.querySelector(`[data-kind="${projectKind}"]`)?.focus();
+    });
+    tab.addEventListener('keydown', event => {
+      if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+      event.preventDefault();
+      const next = event.key === 'Home' ? 'project' : event.key === 'End' ? 'proposal' : projectKind === 'project' ? 'proposal' : 'project';
+      document.querySelector(`[data-kind="${next}"]`).click();
+    });
+  });
   document.querySelector('#stop-timer')?.addEventListener('click', () => act(() => api('/api/timer/stop', { method: 'POST', body: '{}' }), 'Temps enregistré dans votre journée.'));
   document.querySelector('#export-day').addEventListener('click', () => act(async () => {
     const result = await api('/api/export', { method: 'POST', body: '{}' });
